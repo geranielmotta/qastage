@@ -1,0 +1,14 @@
+{
+  "screen": "painel",
+  "url": "http://localhost:4173/painel",
+  "scannedAt": "2026-10-16T15:47:41.505Z",
+  "testIdAttribute": "data-testid",
+  "elements": [
+    {
+      "testid": "sair",
+      "tag": "a",
+      "label": "Sair"
+    }
+  ],
+  "missingTestid": []
+}

@@ -9,13 +9,18 @@ const logger: Logger = {
   error: (m) => console.error(`[erro] ${m}`),
 };
 
+const OPCOES_DO_RUNNER = new Set(["env", "url", "authUrl", "feature"]);
+
 interface ParsedArgs {
   comando: string | undefined;
   pluginName: string | undefined;
   opts: Record<string, string>;
 }
 
-/** Uso: run <plugin> [--env qa] [--url http://...] [--feature caminho.feature] */
+/**
+ * Uso: run <plugin> [--env qa] [--url http://...] [--feature caminho.feature] [--<param> valor ...]
+ * Opções que o runner não conhece viram params do plugin (ex.: --mode scan --paths /login).
+ */
 function parseArgs(argv: string[]): ParsedArgs {
   const [comando, pluginName, ...rest] = argv;
   const opts: Record<string, string> = {};
@@ -42,7 +47,7 @@ async function main(): Promise<void> {
   }
 
   if (comando !== "run" || !pluginName) {
-    logger.error("Uso: run <plugin> [--env qa] [--url http://...] [--feature caminho.feature]");
+    logger.error("Uso: run <plugin> [--env qa] [--url http://...] [--feature caminho.feature] [--<param> valor ...]");
     process.exitCode = 1;
     return;
   }
@@ -63,7 +68,7 @@ async function main(): Promise<void> {
     featurePath: opts.feature,
     artifactsDir,
     logger,
-    params: {},
+    params: Object.fromEntries(Object.entries(opts).filter(([k]) => !OPCOES_DO_RUNNER.has(k))),
   };
 
   logger.info(`Executando "${pluginName}" no ambiente "${ctx.env.name}" (${ctx.env.baseUrl})`);
@@ -71,12 +76,13 @@ async function main(): Promise<void> {
 
   logger.info(`Resultado: ${result.status}`);
   for (const step of result.steps ?? []) {
-    logger.info(`  ${step.status === "passed" ? "✓" : "✗"} ${step.name}`);
+    logger.info(`  ${step.status === "passed" ? "✓" : step.status === "skipped" ? "-" : "✗"} ${step.name}`);
   }
   for (const a of result.artifacts) {
     logger.info(`  artefato: ${a.kind} -> ${a.path}`);
   }
 
+  if (result.status === "error" && result.error) logger.error(result.error);
   if (result.status !== "passed") process.exitCode = 1;
 }
 

@@ -2,7 +2,7 @@
 
 > Plataforma de testes de QA: o QA escreve arquivos `.feature` e testa telas e APIs a partir deles. Extensível por plugins.
 
-**Status:** F0 em andamento — contrato de plugin + esqueleto do monorepo rodando.
+**Status:** F0 concluído; F1 com a metade runner do `ui-testing` rodando (falta o shell/MFE). Detalhes no [STATUS](STATUS.md).
 
 ---
 
@@ -16,6 +16,14 @@ pnpm install                    # instala o workspace
 pnpm run runner list            # lista os plugins registrados
 pnpm run runner -- run example --env qa --url https://qa.exemplo.com
 pnpm build                      # typecheck de todos os pacotes (via Turborepo)
+```
+
+Testes de tela (F1), contra o site de demonstração:
+
+```bash
+pnpm run ui-demo                # em outro terminal: http://localhost:4173
+pnpm run runner -- run ui-testing --url http://localhost:4173 --mode scan --paths /login,/painel --maps examples/ui-demo/qastage/maps
+pnpm run runner -- run ui-testing --url http://localhost:4173 --feature examples/ui-demo/features/login.feature --maps examples/ui-demo/qastage/maps
 ```
 
 O comando `run example` carrega o plugin de exemplo, executa o seu *executor* e

@@ -1,4 +1,5 @@
 import { examplePlugin } from "@qastage/plugin-example";
+import { uiPlugin } from "@qastage/plugin-ui";
 import { PluginRegistry } from "./registry";
 
 /**
@@ -9,5 +10,6 @@ import { PluginRegistry } from "./registry";
 export function createRegistry(): PluginRegistry {
   const registry = new PluginRegistry();
   registry.register(examplePlugin);
+  registry.register(uiPlugin);
   return registry;
 }

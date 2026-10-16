@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="pt-BR">
+<head><meta charset="utf-8"><title>Login — demo QAStage</title>
+<style>body{font-family:sans-serif;max-width:360px;margin:40px auto}label{display:block;margin-top:12px}.btn-entrar{margin-top:16px;padding:8px;background:#2563eb;color:#fff;width:40px;text-align:center;cursor:pointer}</style>
+</head>
+<body>
+  <h1>Acesso</h1>
+  <!-- 1. testid = slug do rótulo (convenção) -->
+  <label for="email">E-mail</label>
+  <input id="email" data-testid="e-mail" type="email">
+
+  <!-- 2. sem testid, mas acessível: resolve pelo label -->
+  <label for="senha">Senha *</label>
+  <input id="senha" type="password">
+
+  <!-- 3. testid fora da convenção: resolve pelo mapa do scan (rótulo → testid) -->
+  <label for="perfil">Perfil</label>
+  <select id="perfil" data-testid="sel-perfil-acesso">
+    <option value="qa">QA</option>
+    <option value="dev">Desenvolvedor</option>
+  </select>
+
+  <label><input type="checkbox" id="lembrar"> Lembrar de mim</label>
+
+  <!-- 4. sem testid nem semântica (div com ícone): só a exceção manual do QA resolve -->
+  <div class="btn-entrar" onclick="entrar()">&#10140;</div>
+  <p id="erro" style="color:#b91c1c"></p>
+
+  <script>
+    function entrar() {
+      const email = document.getElementById("email").value;
+      const senha = document.getElementById("senha").value;
+      if (!email || senha !== "segredo") {
+        document.getElementById("erro").textContent = "Credenciais inválidas";
+        return;
+      }
+      const perfil = document.getElementById("perfil").selectedOptions[0].text;
+      location.href = "/painel?email=" + encodeURIComponent(email) + "&perfil=" + encodeURIComponent(perfil);
+    }
+  </script>
+</body>
+</html>

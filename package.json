@@ -12,7 +12,8 @@
     "dev": "turbo run dev",
     "lint": "turbo run lint",
     "test": "turbo run test",
-    "runner": "tsx apps/runner/src/cli.ts"
+    "runner": "tsx apps/runner/src/cli.ts",
+    "ui-demo": "node examples/ui-demo/server.mjs"
   },
   "devDependencies": {
     "@types/node": "^20.16.0",

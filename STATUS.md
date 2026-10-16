@@ -21,17 +21,38 @@ pnpm run runner -- run example --env qa --url https://qa.exemplo.com   # status:
 pnpm build   # typecheck ok nos 4 pacotes (turbo precisa do pnpm no PATH: corepack enable)
 ```
 
-## Próximo — F1 (plugin `ui-testing`)
+## Feito — F1 (metade runner do `ui-testing`)
 
-Objetivo (gate): um `.feature` roda contra uma URL e resolve os campos sozinho.
+- **`@qastage/plugin-ui`** registrado no runner como `ui-testing` (Playwright + parser Gherkin, sem Cucumber runtime).
+- **Scan** (`--mode scan --paths /a,/b`): grava `<maps>/<tela>.json` com os elementos com `data-testid`
+  e lista os interativos **sem** testid, já com o testid sugerido pela convenção (slug do rótulo).
+- **Cadeia de resolução** ([resolver.ts](packages/plugin-ui/src/runner/resolver.ts)):
+  exceção manual do QA (`exceptions.json`, se existir é a única usada) → `data-testid` = slug →
+  testid achado pelo mapa (rótulo → testid) → semântico (role/label/placeholder/texto).
+  Nada achado → erro com o trecho pronto para colar no `exceptions.json`.
+- **Passos de tela** (pt, [steps.ts](packages/plugin-ui/src/runner/steps.ts)): acesso, preencho, clico,
+  seleciono, marco/desmarco, devo ver / não devo ver, campo deve conter, devo estar em.
+- Artefatos por execução: print final/falha por cenário + `resolucoes.json` (como cada campo foi achado).
+- Demo em `examples/ui-demo` (cada campo do login exercita uma estratégia da cadeia).
 
-1. `packages/plugin-ui` com as duas metades (`runner/` passos de tela + `web/` remote).
-2. **Scan de `data-testid`**: crawler lê o DOM de uma tela e grava um mapa por tela.
-3. **Cadeia de resolução**: `data-testid` → semântico (role/label/placeholder) →
-   fallback manual do QA (nunca travar).
-4. Passos de tela genéricos (ex.: `eu preencho "{campo}" com "{valor}"`,
-   `eu clico em "{rotulo}"`), usando Playwright no runner.
-5. Primeiro remote React no `apps/shell` (Module Federation).
+Gate verificado de verdade:
+
+```bash
+pnpm run ui-demo   # em outro terminal: site em http://localhost:4173
+pnpm run runner -- run ui-testing --url http://localhost:4173 --mode scan --paths /login,/painel --maps examples/ui-demo/qastage/maps
+pnpm run runner -- run ui-testing --url http://localhost:4173 --feature examples/ui-demo/features/login.feature --maps examples/ui-demo/qastage/maps
+# 2 cenários, 16 passos passed. Sem o exceptions.json, "Entrar" falha com a instrução de fallback.
+```
+
+Parâmetros do plugin (qualquer `--opção` que o runner não conhece vira param):
+`--mode run|scan`, `--paths`, `--maps` (padrão `qastage/maps`), `--browser chromium|firefox|webkit`,
+`--headed true`, `--timeout ms` (padrão 5000), `--testIdAttribute`.
+
+## Próximo — F1 (metade front)
+
+1. Decidir o mecanismo de MFE (Module Federation puro × single-spa).
+2. `apps/shell` (React + TS) + primeiro remote em `packages/plugin-ui/web/`.
+3. API HTTP no runner para o shell disparar scan/execução (o shell nunca roda Playwright).
 
 ## Decisões fixadas
 

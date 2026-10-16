@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="pt-BR">
+<head><meta charset="utf-8"><title>Painel — demo QAStage</title></head>
+<body style="font-family:sans-serif;max-width:360px;margin:40px auto">
+  <h1 id="ola"></h1>
+  <p id="perfil"></p>
+  <a href="/login" data-testid="sair">Sair</a>
+  <script>
+    const q = new URLSearchParams(location.search);
+    document.getElementById("ola").textContent = "Bem-vindo, " + q.get("email");
+    document.getElementById("perfil").textContent = "Perfil: " + q.get("perfil");
+  </script>
+</body>
+</html>
