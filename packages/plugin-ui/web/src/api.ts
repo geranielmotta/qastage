@@ -5,6 +5,8 @@ export interface RunRecord {
   state: "running" | "done";
   logs: Array<{ level: "info" | "warn" | "error"; msg: string }>;
   result?: RunResult;
+  /** Caminho do report.html no runner (ex.: /artifacts/ui-testing/123/report.html). */
+  reportUrl?: string;
 }
 
 export interface Resolucao {

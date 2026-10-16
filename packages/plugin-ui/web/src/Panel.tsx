@@ -241,13 +241,24 @@ interface ResultadoProps {
 
 function Resultado({ apiBase, rec, maps, onCorrigido }: ResultadoProps) {
   const r = rec.result;
-  const prints = r?.artifacts.filter((a) => a.kind === "screenshot") ?? [];
+  // Um print por cenário: o do passo que falhou ou, se passou, o do último passo.
+  const prints = [
+    ...(r?.artifacts.filter((a) => a.kind === "screenshot") ?? []),
+    ...[...new Set(r?.steps?.map((s) => s.scenario) ?? [])].flatMap((sc) => {
+      const doCenario = r!.steps!.filter((s) => s.scenario === sc && s.artifacts?.length);
+      const alvo = doCenario.find((s) => s.status === "failed") ?? doCenario.at(-1);
+      return alvo?.artifacts?.filter((a) => a.kind === "screenshot").map((a) => ({ ...a, label: `${sc} — ${a.label}` })) ?? [];
+    }),
+  ];
   const falhas = r?.steps?.filter((s) => s.status === "failed" && s.error) ?? [];
   return (
     <div className="card">
       <h2>
         Resultado{" "}
         {r ? <span className={`status ${r.status}`}>{r.status}</span> : <span className="status skipped">executando</span>}
+        {rec.reportUrl && (
+          <a className="relatorio" href={apiBase + rec.reportUrl} target="_blank" rel="noreferrer">Abrir relatório completo ↗</a>
+        )}
       </h2>
       {r?.status === "error" && <pre>{r.error}</pre>}
       {r?.steps && (

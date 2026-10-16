@@ -14,7 +14,8 @@ export const css = `
 .qui .primario { background: var(--q-accent); color: #fff; border-color: var(--q-accent); padding: 7px 16px; }
 .qui .primario:disabled { opacity: .6; cursor: wait; }
 .qui .card { background: var(--q-card); border: 1px solid var(--q-line); border-radius: 8px; padding: 14px; margin-top: 16px; }
-.qui .card h2 { font-size: 15px; margin: 0 0 10px; }
+.qui .card h2 { font-size: 15px; margin: 0 0 10px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.qui .relatorio { margin-left: auto; font-weight: 400; font-size: 14px; }
 .qui .status { font-weight: 700; text-transform: uppercase; font-size: 12px; padding: 2px 8px; border-radius: 99px; border: 1px solid currentColor; }
 .qui .passed { color: var(--q-ok); } .qui .failed, .qui .error { color: var(--q-fail); } .qui .skipped { color: var(--q-skip); }
 .qui ul.passos { list-style: none; padding: 0; margin: 0; font-size: 14px; }

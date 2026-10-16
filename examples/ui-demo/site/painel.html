@@ -9,6 +9,8 @@
     const q = new URLSearchParams(location.search);
     document.getElementById("ola").textContent = "Bem-vindo, " + q.get("email");
     document.getElementById("perfil").textContent = "Perfil: " + q.get("perfil");
+    // Endpoint que não existe na demo: aparece no pacote de falha como erro de rede.
+    fetch("/api/notificacoes").then((r) => { if (!r.ok) console.error("Falha ao carregar notificações: " + r.status); });
   </script>
 </body>
 </html>

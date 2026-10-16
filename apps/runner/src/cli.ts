@@ -51,7 +51,7 @@ async function main(): Promise<void> {
     return;
   }
 
-  const { result } = await executeRun(
+  const { result, reportHtml } = await executeRun(
     registry,
     {
       plugin: pluginName,
@@ -70,6 +70,10 @@ async function main(): Promise<void> {
     logger.info(`  artefato: ${a.kind} -> ${a.path}`);
   }
 
+  for (const f of result.failures ?? []) {
+    logger.error(`Falha em "${f.scenario}" › ${f.step}`);
+  }
+  if (reportHtml) logger.info(`Relatório: ${reportHtml}`);
   if (result.status === "error" && result.error) logger.error(result.error);
   if (result.status !== "passed") process.exitCode = 1;
 }

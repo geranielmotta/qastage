@@ -76,11 +76,39 @@ pnpm --filter @qastage/shell dev              # shell :5173 → abra e vá em "T
 # ou, com o pnpm no PATH (corepack enable): pnpm dev  (turbo sobe runner, remote e shell)
 ```
 
-## Próximo
+## Feito — F2 (reports & artifacts)
 
-- **F2 — reports & artifacts:** print por passo, relatório navegável, pacote estruturado de falha.
-- Config de ambientes/projeto no runner (hoje os ambientes ficam no localStorage do shell e a pasta
-  de mapas é um campo do painel).
+- **`@qastage/reports`**: o runner chama `writeReport` ao fim de **toda** execução, de qualquer plugin.
+  Grava na pasta da execução `report.json`, `report.html` (estático, autocontido, links relativos) e um
+  **pacote por falha** em `falhas/NN-cenario/` (`falha.json` + `falha.md`).
+- **Pacote de falha** (`FailureReport` no contrato): cenário, passo, erro, URL da tela, roteiro de
+  reprodução, dados usados, console/rede do alvo (erros JS, 4xx/5xx), print, HTML da tela e trace do Playwright.
+- **ui-testing**: print a cada passo (documentação viva; `--screenshots failure` para só na falha),
+  trace só quando falha (`--trace off` desliga), uma pasta por cenário.
+- **Segredos mascarados**: campos tipo senha/token viram `••••••` no relatório, no pacote, nos nomes de
+  passo e de arquivo. **Exceção: o `trace.zip` ainda contém o valor digitado.**
+- **reports é um plugin sem executor** (`createExecutor` virou opcional): rota `GET /api/plugins/reports/runs`
+  e painel **Relatórios** (remote `qastage_reports` na 5175) com histórico, link para o relatório e o pacote.
+  Entrou no shell sem mudar nada no shell.
+- Runner serve `artifacts/` como site estático em `/artifacts/...`; o painel de UI linka "Abrir relatório completo".
+
+Gate verificado: `examples/ui-demo/features/falha.feature` falha e gera o pacote completo (com o 404
+de `/api/notificacoes` da demo no console); no navegador, relatório com 9/9 imagens e histórico ok.
+
+```bash
+pnpm run runner -- run ui-testing --url http://localhost:4173 --feature examples/ui-demo/features/falha.feature --maps examples/ui-demo/qastage/maps
+# → artifacts/ui-testing/<id>/report.html e falhas/01-painel-mostra-o-saldo/falha.md
+pnpm --filter @qastage/reports dev     # painel Relatórios :5175 (junto com runner, plugin-ui e shell)
+```
+
+## Próximo — F3 (integrations/jira)
+
+1. Plugin `integrations` (sem executor): cria/atualiza card na falha a partir do `FailurePackage`, com
+   `falha.md` no corpo e prints anexados.
+2. Dedupe: chave = cenário + fingerprint da falha (passo + erro normalizado); card aberto → comentário.
+3. Assíncrono e opcional: nunca trava nem derruba a execução se o Jira estiver fora.
+4. Decidir o que fazer com o `trace.zip` (contém o valor de campos sensíveis): não anexar por padrão.
+5. Pendências antigas: config de ambientes/projeto no runner (hoje localStorage + campo do painel).
 
 ## Decisões fixadas
 

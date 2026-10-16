@@ -1,13 +1,13 @@
-import { readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
 import { AstBuilder, GherkinClassicTokenMatcher, Parser, compile } from "@cucumber/gherkin";
 import { IdGenerator, type GherkinDocument, type Pickle } from "@cucumber/messages";
-import type { Artifact, Executor, RunContext, RunResult, StepResult } from "@qastage/core-contract";
-import { chromium, firefox, webkit, type Browser, type BrowserType } from "playwright";
+import type { Artifact, Executor, FailureReport, RunContext, RunResult, StepResult } from "@qastage/core-contract";
+import { chromium, firefox, webkit, type Browser, type BrowserType, type Page } from "playwright";
 import { ElementNotFoundError, ElementResolver } from "./resolver";
 import { scanPage } from "./scan";
 import { MapStore } from "./screen-map";
-import { matchStep, type StepWorld } from "./steps";
+import { mask, matchStep, sensitiveValue, type StepWorld } from "./steps";
 import { slugify } from "./text";
 
 /** Parâmetros aceitos pelo plugin (vêm de RunContext.params). */
@@ -22,6 +22,10 @@ interface UiParams {
   headed: boolean;
   timeoutMs: number;
   testIdAttribute: string;
+  /** "steps" (padrão): print a cada passo, documentação viva; "failure": só na falha. */
+  screenshots: "steps" | "failure";
+  /** "failure" (padrão): grava o trace do Playwright quando o cenário falha; "off": não grava. */
+  trace: "failure" | "off";
 }
 
 function readParams(ctx: RunContext): UiParams {
@@ -37,6 +41,8 @@ function readParams(ctx: RunContext): UiParams {
     headed: str("headed") === "true",
     timeoutMs: Number(str("timeout") ?? 5000),
     testIdAttribute: str("testIdAttribute") ?? "data-testid",
+    screenshots: str("screenshots") === "failure" ? "failure" : "steps",
+    trace: str("trace") === "off" ? "off" : "failure",
   };
 }
 
@@ -95,43 +101,88 @@ export class UiExecutor implements Executor {
 
     const steps: StepResult[] = [];
     const artifacts: Artifact[] = [];
+    const failures: FailureReport[] = [];
     const resolucoes: Array<Record<string, string>> = [];
 
     for (const [i, pickle] of pickles.entries()) {
       ctx.logger.info(`Cenário: ${pickle.name}`);
-      const prefixo = `${String(i + 1).padStart(2, "0")}-${slugify(pickle.name)}`;
+      // Cada cenário tem a sua pasta: 01-login-com-sucesso/03-....png
+      const pasta = `${String(i + 1).padStart(2, "0")}-${slugify(pickle.name)}`;
+      mkdirSync(join(ctx.artifactsDir, pasta), { recursive: true });
+      const arquivo = (nome: string) => join(ctx.artifactsDir, pasta, nome);
+
       const context = await browser.newContext();
+      if (params.trace === "failure") await context.tracing.start({ screenshots: true, snapshots: true, sources: false });
       const page = await context.newPage();
       page.setDefaultTimeout(params.timeoutMs);
-      const world: StepWorld = { page, baseUrl: ctx.env.baseUrl, resolver, logger: ctx.logger, resolutions: [], timeoutMs: params.timeoutMs };
+      const consoleAlvo = captureConsole(page);
+      const world: StepWorld = { page, baseUrl: ctx.env.baseUrl, resolver, logger: ctx.logger, resolutions: [], data: {}, secrets: new Set(), timeoutMs: params.timeoutMs };
 
-      let falhou = false;
-      for (const ps of pickle.steps) {
-        const nome = `${pickle.name} › ${keywords.get(ps.astNodeIds[0]!) ?? ""}${ps.text}`;
-        if (falhou) {
-          steps.push({ name: nome, status: "skipped", durationMs: 0 });
+      let falha: FailureReport | undefined;
+      const roteiro: string[] = [];
+      for (const [n, ps] of pickle.steps.entries()) {
+        // O segredo entra no conjunto antes do passo rodar: nem o nome do passo o carrega.
+        const segredo = sensitiveValue(ps.text);
+        if (segredo) world.secrets.add(segredo);
+        const passo = mask(`${keywords.get(ps.astNodeIds[0]!) ?? ""}${ps.text}`, world.secrets);
+        const base = { name: `${pickle.name} › ${passo}`, scenario: pickle.name };
+        if (falha) {
+          steps.push({ ...base, status: "skipped", durationMs: 0 });
           continue;
         }
+        roteiro.push(passo);
         const t0 = Date.now();
+        const print = arquivo(`${String(n + 1).padStart(2, "0")}-${slugify(mask(ps.text, world.secrets)).slice(0, 60)}.png`);
         try {
           const m = matchStep(ps.text);
           await m.run(world, ...m.args);
-          steps.push({ name: nome, status: "passed", durationMs: Date.now() - t0 });
+          const r: StepResult = { ...base, status: "passed", durationMs: Date.now() - t0 };
+          if (params.screenshots === "steps" && (await shot(page, print))) r.artifacts = [{ kind: "screenshot", path: print, label: passo }];
+          steps.push(r);
         } catch (e) {
-          falhou = true;
-          const error = (e as Error).message;
-          const falha: StepResult = { name: nome, status: "failed", durationMs: Date.now() - t0, error };
+          const error = mask((e as Error).message, world.secrets);
+          ctx.logger.error(`  ${base.name}\n${error}`);
+          const r: StepResult = { ...base, status: "failed", durationMs: Date.now() - t0, error };
           if (e instanceof ElementNotFoundError) {
-            falha.details = { kind: "elemento-nao-encontrado", rotulo: e.rotulo, tela: e.screen, tentativas: e.tentativas };
+            r.details = { kind: "elemento-nao-encontrado", rotulo: e.rotulo, tela: e.screen, tentativas: e.tentativas };
           }
-          steps.push(falha);
-          ctx.logger.error(`  ${nome}\n${error}`);
+          const doPasso: Artifact[] = [];
+          if (await shot(page, print)) doPasso.push({ kind: "screenshot", path: print, label: `${passo} (falha)` });
+          r.artifacts = doPasso;
+          steps.push(r);
+
+          const html = arquivo("tela.html");
+          const extras: Artifact[] = [...doPasso];
+          if (await page.content().then((c) => (writeFileSync(html, c, "utf8"), true)).catch(() => false)) {
+            extras.push({ kind: "other", path: html, label: "HTML da tela na falha" });
+          }
+          falha = {
+            scenario: pickle.name,
+            step: passo,
+            error,
+            url: page.url(),
+            data: { ...world.data },
+            stepsToReproduce: [...roteiro],
+            console: consoleAlvo.map((l) => mask(l, world.secrets)),
+            artifacts: extras,
+          };
         }
       }
 
-      const print = join(ctx.artifactsDir, `${prefixo}-${falhou ? "falha" : "fim"}.png`);
-      await page.screenshot({ path: print, fullPage: true }).catch(() => undefined);
-      artifacts.push({ kind: "screenshot", path: print, label: `${pickle.name} (${falhou ? "falha" : "fim"})` });
+      if (params.trace === "failure") {
+        if (falha) {
+          const trace = arquivo("trace.zip");
+          await context.tracing.stop({ path: trace });
+          falha.artifacts.push({ kind: "trace", path: trace, label: "trace do Playwright (npx playwright show-trace)" });
+        } else {
+          await context.tracing.stop();
+        }
+      }
+      if (falha) failures.push(falha);
+      if (params.screenshots === "failure" && !falha) {
+        const fim = arquivo("fim.png");
+        if (await shot(page, fim)) artifacts.push({ kind: "screenshot", path: fim, label: `${pickle.name} (fim)` });
+      }
       for (const r of world.resolutions) {
         resolucoes.push({ cenario: pickle.name, tela: r.screen, rotulo: r.rotulo, estrategia: r.strategy, como: r.detail });
       }
@@ -142,9 +193,29 @@ export class UiExecutor implements Executor {
     writeFileSync(arqResolucoes, JSON.stringify(resolucoes, null, 2) + "\n", "utf8");
     artifacts.push({ kind: "report", path: arqResolucoes, label: "como cada campo foi resolvido" });
 
-    const falha = steps.find((s) => s.status === "failed");
-    return falha ? { status: "failed", steps, artifacts, error: falha.error } : { status: "passed", steps, artifacts };
+    const status = failures.length > 0 ? "failed" : "passed";
+    return { status, steps, artifacts, failures, ...(failures[0] ? { error: failures[0].error } : {}) };
   }
+}
+
+/** Print da página inteira; nunca derruba o passo se o print falhar. */
+async function shot(page: Page, path: string): Promise<boolean> {
+  return page.screenshot({ path, fullPage: true }).then(() => true, () => false);
+}
+
+/** Erros de console, exceções JS e requisições com falha do alvo — o que o dev precisa ver. */
+function captureConsole(page: Page): string[] {
+  const linhas: string[] = [];
+  const hora = () => new Date().toISOString().slice(11, 23);
+  page.on("console", (m) => {
+    if (m.type() === "error" || m.type() === "warning") linhas.push(`${hora()} [console.${m.type()}] ${m.text()}`);
+  });
+  page.on("pageerror", (e) => linhas.push(`${hora()} [erro JS] ${e.message}`));
+  page.on("requestfailed", (r) => linhas.push(`${hora()} [rede] ${r.method()} ${r.url()} — ${r.failure()?.errorText ?? "falhou"}`));
+  page.on("response", (r) => {
+    if (r.status() >= 400) linhas.push(`${hora()} [rede] ${r.request().method()} ${r.url()} → ${r.status()}`);
+  });
+  return linhas;
 }
 
 /** Lê o .feature (qualquer idioma do Gherkin, ex.: "# language: pt") e expande em pickles. */

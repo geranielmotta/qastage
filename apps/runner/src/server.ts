@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { createReadStream, existsSync, statSync } from "node:fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import { extname, resolve, sep } from "node:path";
+import { extname, join, relative, resolve, sep } from "node:path";
 import type { Logger, RunResult } from "@qastage/core-contract";
 import { createRegistry } from "./bootstrap";
 import { executeRun, workspaceRoot, type RunRequest } from "./execute";
@@ -14,6 +14,7 @@ import { executeRun, workspaceRoot, type RunRequest } from "./execute";
  *   POST /api/runs             dispara uma execução → { id }
  *   GET  /api/runs/:id         estado, logs e resultado
  *   GET  /api/files?path=...   serve um artefato (print, mapa...) de dentro do projeto
+ *   GET  /artifacts/...        pasta de artefatos como site estático (report.html e seus links relativos)
  *   *    /api/plugins/:nome/*  rotas contribuídas pelo próprio plugin (RunnerPlugin.routes)
  */
 
@@ -23,6 +24,8 @@ interface RunRecord {
   state: "running" | "done";
   logs: Array<{ level: "info" | "warn" | "error"; msg: string }>;
   result?: RunResult;
+  /** URL do report.html, relativa ao runner (ex.: /artifacts/ui-testing/123/report.html). */
+  reportUrl?: string;
 }
 
 const PORT = Number(process.env.QASTAGE_PORT ?? 4000);
@@ -41,6 +44,9 @@ const MIME: Record<string, string> = {
   ".txt": "text/plain; charset=utf-8",
   ".feature": "text/plain; charset=utf-8",
   ".webm": "video/webm",
+  ".html": "text/html; charset=utf-8",
+  ".md": "text/markdown; charset=utf-8",
+  ".zip": "application/zip",
 };
 
 function json(res: ServerResponse, status: number, body: unknown): void {
@@ -53,6 +59,15 @@ async function readBody(req: IncomingMessage): Promise<unknown> {
   return chunks.length ? JSON.parse(Buffer.concat(chunks).toString("utf8")) : {};
 }
 
+/** Serve um arquivo só se estiver dentro de `base`. */
+function sendFile(res: ServerResponse, path: string, base: string): void {
+  if (!path.startsWith(base + sep) || !existsSync(path) || !statSync(path).isFile()) {
+    return json(res, 404, { error: "Arquivo não encontrado" });
+  }
+  res.writeHead(200, { "content-type": MIME[extname(path)] ?? "application/octet-stream" });
+  createReadStream(path).pipe(res);
+}
+
 function startRun(request: RunRequest): RunRecord {
   const record: RunRecord = { id: randomUUID(), request, state: "running", logs: [] };
   const log = (level: "info" | "warn" | "error") => (msg: string) => {
@@ -63,7 +78,10 @@ function startRun(request: RunRequest): RunRecord {
 
   runs.set(record.id, record);
   executeRun(registry, request, logger)
-    .then(({ result }) => (record.result = result))
+    .then(({ result, reportHtml }) => {
+      record.result = result;
+      if (reportHtml) record.reportUrl = "/" + relative(ROOT, reportHtml).split(sep).join("/");
+    })
     .catch((e: Error) => {
       const agora = new Date().toISOString();
       record.result = { status: "error", error: e.message, artifacts: [], startedAt: agora, finishedAt: agora };
@@ -110,12 +128,12 @@ const server = createServer(async (req, res) => {
     }
 
     if (req.method === "GET" && url.pathname === "/api/files") {
-      const path = resolve(url.searchParams.get("path") ?? "");
-      if (!(path === ROOT || path.startsWith(ROOT + sep)) || !existsSync(path) || !statSync(path).isFile()) {
-        return json(res, 404, { error: "Arquivo não encontrado" });
-      }
-      res.writeHead(200, { "content-type": MIME[extname(path)] ?? "application/octet-stream" });
-      return void createReadStream(path).pipe(res);
+      return sendFile(res, resolve(url.searchParams.get("path") ?? ""), ROOT);
+    }
+
+    if (req.method === "GET" && url.pathname.startsWith("/artifacts/")) {
+      const artifacts = join(ROOT, "artifacts");
+      return sendFile(res, resolve(artifacts, "." + decodeURIComponent(url.pathname.slice("/artifacts".length))), artifacts);
     }
 
     const rp = url.pathname.match(/^\/api\/plugins\/([\w-]+)(\/.*)$/);

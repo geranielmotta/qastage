@@ -78,7 +78,7 @@ export interface RunContext {
 
 /** Artefato produzido numa execução. */
 export interface Artifact {
-  kind: "screenshot" | "log" | "har" | "video" | "report" | "other";
+  kind: "screenshot" | "log" | "har" | "video" | "trace" | "report" | "other";
   path: string;
   label?: string;
 }
@@ -90,6 +90,10 @@ export interface StepResult {
   name: string;
   status: RunStatus;
   durationMs: number;
+  /** Cenário ao qual o passo pertence (agrupa o relatório). */
+  scenario?: string;
+  /** Prints e outros arquivos do passo (documentação viva, também no sucesso). */
+  artifacts?: Artifact[];
   error?: string;
   /**
    * Dados estruturados da falha, para o painel do plugin agir sobre ela
@@ -98,11 +102,34 @@ export interface StepResult {
   details?: Record<string, unknown>;
 }
 
+/**
+ * Pacote de falha para o dev: tudo que ele precisa para reproduzir sem
+ * perguntar ao QA. O executor monta; o módulo de reports grava e renderiza.
+ */
+export interface FailureReport {
+  scenario: string;
+  /** Passo que falhou, com a palavra-chave (ex.: 'E eu clico em "Entrar"'). */
+  step: string;
+  error: string;
+  /** URL da tela no momento da falha. */
+  url?: string;
+  /** Dados usados no cenário até a falha (ex.: { "E-mail": "qa@empresa.com" }). */
+  data: Record<string, string>;
+  /** Passos até a falha, na ordem — o roteiro de reprodução. */
+  stepsToReproduce: string[];
+  /** Console e rede do alvo (erros JS, requisições 4xx/5xx...). */
+  console?: string[];
+  /** Arquivos da falha: print, trace, html da tela... */
+  artifacts: Artifact[];
+}
+
 /** Resultado de uma execução completa, devolvido pelo executor ao runner. */
 export interface RunResult {
   status: RunStatus;
   steps?: StepResult[];
   artifacts: Artifact[];
+  /** Um pacote por cenário que falhou. */
+  failures?: FailureReport[];
   /** Mensagem de erro quando status é "failed" ou "error". */
   error?: string;
   /** Métricas livres (ex.: p95, taxa de erro de um teste de carga). */
@@ -141,7 +168,8 @@ export interface PluginApiRoute {
 /** A metade "runner" de um plugin: o manifesto + a fábrica do executor. */
 export interface RunnerPlugin {
   manifest: PluginManifest;
-  createExecutor(): Executor;
+  /** Ausente em plugins que não executam testes (ex.: reports, integrations). */
+  createExecutor?(): Executor;
   /** Rotas HTTP extras do plugin (opcional). */
   routes?: PluginApiRoute[];
 }

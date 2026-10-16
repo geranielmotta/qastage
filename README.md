@@ -2,7 +2,7 @@
 
 > Plataforma de testes de QA: o QA escreve arquivos `.feature` e testa telas e APIs a partir deles. Extensível por plugins.
 
-**Status:** F0 e F1 rodando — `ui-testing` com runner e painel no shell (MFE). Detalhes no [STATUS](STATUS.md).
+**Status:** F0, F1 e F2 rodando — `ui-testing` (runner + painel) e `reports` (relatório navegável + pacote de falha). Detalhes no [STATUS](STATUS.md).
 
 ---
 
@@ -32,8 +32,11 @@ Pelo navegador (shell + painel federado):
 pnpm run ui-demo                       # site de demo  :4173
 pnpm --filter @qastage/runner dev      # API do runner :4000
 pnpm --filter @qastage/plugin-ui dev   # remote do painel :5174
-pnpm --filter @qastage/shell dev       # http://localhost:5173 → "Telas (UI)"
+pnpm --filter @qastage/reports dev     # remote do histórico :5175
+pnpm --filter @qastage/shell dev       # http://localhost:5173 → "Telas (UI)" / "Relatórios"
 ```
+
+Toda execução grava `artifacts/<plugin>/<id>/report.html` e, por falha, `falhas/NN-cenario/falha.md`.
 
 O comando `run example` carrega o plugin de exemplo, executa o seu *executor* e
 grava um artefato em `artifacts/`. É a prova do contrato ponta a ponta do F0:

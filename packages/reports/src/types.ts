@@ -1,0 +1,48 @@
+import type { Artifact, FailureReport, RunStatus, StepResult } from "@qastage/core-contract";
+
+/**
+ * report.json — o relatório de uma execução, de qualquer plugin. Todos os
+ * caminhos de arquivo são relativos à pasta da execução: a pasta inteira pode
+ * ser zipada, anexada ou servida sem quebrar links.
+ */
+export interface RunReport {
+  /** Pasta da execução relativa à raiz de artefatos, ex.: "ui-testing/1792165680981". */
+  id: string;
+  plugin: string;
+  env: { name: string; baseUrl: string };
+  status: RunStatus;
+  startedAt: string;
+  finishedAt: string;
+  durationMs: number;
+  counts: Record<RunStatus, number>;
+  scenarios: ScenarioReport[];
+  failures: FailurePackage[];
+  artifacts: Artifact[];
+  error?: string;
+  /** Log do runner durante a execução. */
+  logs: string[];
+}
+
+export interface ScenarioReport {
+  name: string;
+  status: RunStatus;
+  steps: StepResult[];
+}
+
+/** Uma falha gravada como pacote em falhas/NN-cenario/ (falha.json + falha.md). */
+export interface FailurePackage extends FailureReport {
+  /** Pasta do pacote, relativa à execução. */
+  dir: string;
+}
+
+/** Linha do histórico: o essencial de um report.json. */
+export interface RunSummary {
+  id: string;
+  plugin: string;
+  env: { name: string; baseUrl: string };
+  status: RunStatus;
+  startedAt: string;
+  durationMs: number;
+  counts: Record<RunStatus, number>;
+  failures: Array<{ scenario: string; step: string; error: string; dir: string }>;
+}

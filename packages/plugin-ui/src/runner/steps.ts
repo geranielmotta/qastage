@@ -12,6 +12,10 @@ export interface StepWorld {
   logger: Logger;
   /** Como cada rótulo foi resolvido — vira artefato da execução. */
   resolutions: Resolution[];
+  /** Dados que o cenário usou (campo → valor) — vão para o pacote de falha. */
+  data: Record<string, string>;
+  /** Valores sensíveis já digitados: são trocados por "••••••" em tudo que sai da execução. */
+  secrets: Set<string>;
   timeoutMs: number;
 }
 
@@ -28,6 +32,18 @@ const definitions: StepDefinition[] = [];
 
 function step(pattern: string, run: StepFn): void {
   definitions.push({ pattern, expression: new CucumberExpression(pattern, registry), run });
+}
+
+/** Campos cujo valor nunca vai para relatório/pacote de falha (que podem virar anexo no Jira). */
+const SENSIVEL = /senha|password|passwd|token|secret|segredo|pin\b|cvv|api.?key/i;
+
+function registrar(w: StepWorld, campo: string, valor: string): void {
+  if (SENSIVEL.test(campo) && valor) {
+    w.secrets.add(valor);
+    w.data[campo] = "••••••";
+  } else {
+    w.data[campo] = valor;
+  }
 }
 
 async function resolve(w: StepWorld, rotulo: string, intent: Intent) {
@@ -60,6 +76,7 @@ step("(que )eu acesso {string}", async (w, caminho) => {
 
 step("(que )eu preencho {string} com {string}", async (w, campo, valor) => {
   await (await resolve(w, campo!, "fill")).fill(valor!);
+  registrar(w, campo!, valor!);
 });
 
 step("(que )eu clico em {string}", async (w, rotulo) => {
@@ -68,14 +85,17 @@ step("(que )eu clico em {string}", async (w, rotulo) => {
 
 step("(que )eu seleciono {string} em {string}", async (w, opcao, campo) => {
   await (await resolve(w, campo!, "select")).selectOption(opcao!);
+  registrar(w, campo!, opcao!);
 });
 
 step("(que )eu marco {string}", async (w, rotulo) => {
   await (await resolve(w, rotulo!, "check")).check();
+  w.data[rotulo!] = "marcado";
 });
 
 step("(que )eu desmarco {string}", async (w, rotulo) => {
   await (await resolve(w, rotulo!, "check")).uncheck();
+  w.data[rotulo!] = "desmarcado";
 });
 
 step("eu devo ver {string}", async (w, texto) => {
@@ -107,6 +127,19 @@ step("eu devo estar em {string}", async (w, caminho) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+
+/** Troca valores sensíveis por "••••••" num texto (nome de passo, erro...). */
+export function mask(texto: string, secrets: Set<string>): string {
+  let out = texto;
+  for (const s of secrets) out = out.split(s).join("••••••");
+  return out;
+}
+
+/** Detecta, antes de executar, se o passo vai digitar um valor sensível. */
+export function sensitiveValue(texto: string): string | undefined {
+  const m = texto.match(/eu preencho "([^"]*)" com "([^"]*)"/);
+  return m && SENSIVEL.test(m[1]!) && m[2] ? m[2] : undefined;
+}
 
 export interface MatchedStep {
   pattern: string;
