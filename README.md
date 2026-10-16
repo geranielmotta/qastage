@@ -2,7 +2,7 @@
 
 > Plataforma de testes de QA: o QA escreve arquivos `.feature` e testa telas e APIs a partir deles. Extensível por plugins.
 
-**Status:** F0 concluído; F1 com a metade runner do `ui-testing` rodando (falta o shell/MFE). Detalhes no [STATUS](STATUS.md).
+**Status:** F0 e F1 rodando — `ui-testing` com runner e painel no shell (MFE). Detalhes no [STATUS](STATUS.md).
 
 ---
 
@@ -24,6 +24,15 @@ Testes de tela (F1), contra o site de demonstração:
 pnpm run ui-demo                # em outro terminal: http://localhost:4173
 pnpm run runner -- run ui-testing --url http://localhost:4173 --mode scan --paths /login,/painel --maps examples/ui-demo/qastage/maps
 pnpm run runner -- run ui-testing --url http://localhost:4173 --feature examples/ui-demo/features/login.feature --maps examples/ui-demo/qastage/maps
+```
+
+Pelo navegador (shell + painel federado):
+
+```bash
+pnpm run ui-demo                       # site de demo  :4173
+pnpm --filter @qastage/runner dev      # API do runner :4000
+pnpm --filter @qastage/plugin-ui dev   # remote do painel :5174
+pnpm --filter @qastage/shell dev       # http://localhost:5173 → "Telas (UI)"
 ```
 
 O comando `run example` carrega o plugin de exemplo, executa o seu *executor* e
@@ -200,7 +209,7 @@ qastage/
     plugin-load/    # k6
 ```
 
-Cada plugin é um pacote com as duas pontas dentro. Ferramenta de workspace (pnpm + Turborepo ou Nx): a decidir.
+Cada plugin é um pacote com as duas pontas dentro. Workspace: pnpm + Turborepo. Front: Module Federation via `@module-federation/vite`, com os remotes registrados em runtime a partir do manifesto de cada plugin.
 
 ## Roadmap por fases
 
@@ -217,6 +226,4 @@ Começa pelas telas, que é a prioridade do time. Cada fase entrega valor usáve
 
 ## Decisões em aberto
 
-- **Ferramenta de workspace:** pnpm + Turborepo ou Nx, a decidir ao iniciar o F0.
-- **Mecanismo de MFE:** Module Federation puro ou um shell (single-spa), a confirmar no F0.
 - **SSO:** o fluxo exato varia por projeto (SAML/OIDC, MFA); cada projeto que usa SSO precisa de uma captura inicial de sessão.

@@ -15,6 +15,13 @@ export const uiPlugin: RunnerPlugin = {
     name: "ui-testing",
     version: "0.0.0",
     description: "Testes de tela: scan de data-testid, resolução de campos e passos de tela.",
+    webRemote: {
+      name: "qastage_ui",
+      entry: process.env.QASTAGE_UI_REMOTE ?? "http://localhost:5174/remoteEntry.js",
+      module: "./Panel",
+      title: "Telas (UI)",
+      route: "/ui",
+    },
   },
   createExecutor: () => new UiExecutor(),
 };

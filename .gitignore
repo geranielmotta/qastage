@@ -4,3 +4,7 @@ dist/
 artifacts/
 *.log
 .DS_Store
+
+# Module Federation (gerados pelo plugin do Vite)
+@mf-types/
+.__mf__temp/

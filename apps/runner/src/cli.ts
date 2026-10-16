@@ -1,7 +1,6 @@
-import { mkdirSync } from "node:fs";
-import { resolve } from "node:path";
-import type { Logger, RunContext } from "@qastage/core-contract";
+import type { Logger } from "@qastage/core-contract";
 import { createRegistry } from "./bootstrap";
+import { executeRun } from "./execute";
 
 const logger: Logger = {
   info: (m) => console.log(`[info] ${m}`),
@@ -52,27 +51,16 @@ async function main(): Promise<void> {
     return;
   }
 
-  const plugin = registry.get(pluginName);
-  const envName = opts.env ?? "local";
-  const artifactsDir = resolve(process.cwd(), "artifacts", pluginName, String(Date.now()));
-  mkdirSync(artifactsDir, { recursive: true });
-
-  const ctx: RunContext = {
-    env: {
-      name: envName,
-      baseUrl: opts.url ?? "http://localhost:3000",
-      authUrl: opts.authUrl,
-      // Por padrão, homolog não é "seguro para escrita" sem confirmação.
-      writable: envName !== "homolog",
+  const { result } = await executeRun(
+    registry,
+    {
+      plugin: pluginName,
+      env: { name: opts.env ?? "local", baseUrl: opts.url ?? "http://localhost:3000", authUrl: opts.authUrl },
+      featurePath: opts.feature,
+      params: Object.fromEntries(Object.entries(opts).filter(([k]) => !OPCOES_DO_RUNNER.has(k))),
     },
-    featurePath: opts.feature,
-    artifactsDir,
     logger,
-    params: Object.fromEntries(Object.entries(opts).filter(([k]) => !OPCOES_DO_RUNNER.has(k))),
-  };
-
-  logger.info(`Executando "${pluginName}" no ambiente "${ctx.env.name}" (${ctx.env.baseUrl})`);
-  const result = await plugin.createExecutor().run(ctx);
+  );
 
   logger.info(`Resultado: ${result.status}`);
   for (const step of result.steps ?? []) {

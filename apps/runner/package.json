@@ -4,7 +4,9 @@
   "description": "Runner do QAStage: carrega plugins e executa seus executores.",
   "scripts": {
     "build": "tsc --noEmit",
-    "start": "tsx src/cli.ts"
+    "start": "tsx src/cli.ts",
+    "dev": "tsx watch src/server.ts",
+    "serve": "tsx src/server.ts"
   },
   "dependencies": {
     "@qastage/core-contract": "workspace:*",

@@ -15,8 +15,37 @@ export interface PluginManifest {
   version: string;
   /** Descrição curta para o catálogo exibido ao QA. */
   description?: string;
-  /** URL/caminho do remote do front (Module Federation). Opcional no F0. */
-  webRemote?: string;
+  /** Metade do front: o remote federado que o shell carrega em runtime. */
+  webRemote?: WebRemote;
+}
+
+/**
+ * Como o shell acha o painel do plugin (Module Federation). O shell lê isto de
+ * GET /api/plugins e registra o remote em runtime — plugin novo não exige
+ * rebuild do shell.
+ */
+export interface WebRemote {
+  /** Nome do remote no Module Federation, ex.: "qastage_ui". */
+  name: string;
+  /** URL do remoteEntry.js, ex.: "http://localhost:5174/remoteEntry.js". */
+  entry: string;
+  /** Módulo exposto que exporta o painel por padrão, ex.: "./Panel". */
+  module: string;
+  /** Título na navegação do shell. */
+  title: string;
+  /** Rota do painel dentro do shell, ex.: "/ui". */
+  route: string;
+}
+
+/**
+ * Props que o shell passa a todo painel de plugin. É o contrato do lado front:
+ * o painel não sabe onde o runner está nem qual ambiente foi escolhido.
+ */
+export interface PanelProps {
+  /** Base da API do runner, ex.: "http://localhost:4000". */
+  apiBase: string;
+  /** Ambiente selecionado no shell. */
+  env: { name: string; baseUrl: string; authUrl?: string };
 }
 
 /** Logger simples injetado no executor; o runner decide para onde vai. */

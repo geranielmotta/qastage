@@ -1,5 +1,5 @@
 import { readFileSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { join, relative, resolve } from "node:path";
 import { AstBuilder, GherkinClassicTokenMatcher, Parser, compile } from "@cucumber/gherkin";
 import { IdGenerator, type GherkinDocument, type Pickle } from "@cucumber/messages";
 import type { Artifact, Executor, RunContext, RunResult, StepResult } from "@qastage/core-contract";
@@ -76,7 +76,7 @@ export class UiExecutor implements Executor {
         for (const m of map.missingTestid) {
           ctx.logger.warn(`  sem testid: <${m.tag}> "${m.label ?? "?"}"${m.suggestedTestid ? ` → sugerido ${params.testIdAttribute}="${m.suggestedTestid}"` : ""}`);
         }
-        steps.push({ name: `scan ${caminho} → ${file}`, status: "passed", durationMs: Date.now() - t0 });
+        steps.push({ name: `scan ${caminho} → ${relative(process.cwd(), file)}`, status: "passed", durationMs: Date.now() - t0 });
       } catch (e) {
         const error = (e as Error).message;
         ctx.logger.error(`scan ${caminho}: ${error}`);

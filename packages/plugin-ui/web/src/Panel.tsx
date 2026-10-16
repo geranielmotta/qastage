@@ -1,0 +1,223 @@
+import type { PanelProps, RunResult } from "@qastage/core-contract";
+import { useState } from "react";
+import { fetchFileJson, fileUrl, runAndWait, type Resolucao, type RunRecord, type ScreenMap } from "./api";
+import { css } from "./styles";
+
+const FEATURE_EXEMPLO = `# language: pt
+Funcionalidade: Login no sistema de demonstração
+
+  Contexto:
+    Dado que eu acesso "/login"
+
+  Cenário: Login com sucesso
+    Quando eu preencho "E-mail" com "qa@empresa.com"
+    E eu preencho "Senha" com "segredo"
+    E eu seleciono "Desenvolvedor" em "Perfil"
+    E eu marco "Lembrar de mim"
+    E eu clico em "Entrar"
+    Então eu devo estar em "/painel"
+    E eu devo ver "Bem-vindo, qa@empresa.com"
+`;
+
+const ESTRATEGIA: Record<Resolucao["estrategia"], string> = {
+  manual: "exceção manual",
+  testid: "data-testid",
+  "testid-mapa": "testid pelo mapa",
+  semantico: "semântico",
+};
+
+/** Painel do plugin ui-testing: escreve/roda .feature e escaneia telas. */
+export default function Panel({ apiBase, env }: PanelProps) {
+  const [aba, setAba] = useState<"executar" | "scan">("executar");
+  const [maps, setMaps] = useState("examples/ui-demo/qastage/maps");
+  const [browser, setBrowser] = useState("chromium");
+
+  return (
+    <div className="qui">
+      <style>{css}</style>
+      <h1>Testes de tela</h1>
+      <p className="sub">
+        Ambiente <strong>{env.name}</strong> · <code>{env.baseUrl}</code>
+      </p>
+      <div className="abas" role="tablist">
+        <button role="tab" className={aba === "executar" ? "ativa" : ""} onClick={() => setAba("executar")}>Executar .feature</button>
+        <button role="tab" className={aba === "scan" ? "ativa" : ""} onClick={() => setAba("scan")}>Escanear telas</button>
+      </div>
+      <div className="linha">
+        <label>
+          Pasta dos mapas
+          <input value={maps} onChange={(e) => setMaps(e.target.value)} size={36} />
+        </label>
+        <label>
+          Navegador
+          <select value={browser} onChange={(e) => setBrowser(e.target.value)}>
+            <option>chromium</option>
+            <option>firefox</option>
+            <option>webkit</option>
+          </select>
+        </label>
+      </div>
+      {aba === "executar" ? (
+        <Executar apiBase={apiBase} env={env} params={{ maps, browser }} />
+      ) : (
+        <Escanear apiBase={apiBase} env={env} params={{ maps, browser }} />
+      )}
+    </div>
+  );
+}
+
+interface AbaProps extends PanelProps {
+  params: Record<string, string>;
+}
+
+function useRun(apiBase: string) {
+  const [rodando, setRodando] = useState(false);
+  const [rec, setRec] = useState<RunRecord | null>(null);
+  const [erro, setErro] = useState<string | null>(null);
+  const disparar = async (body: unknown): Promise<RunRecord | null> => {
+    setRodando(true);
+    setErro(null);
+    setRec(null);
+    try {
+      return await runAndWait(apiBase, body, setRec);
+    } catch (e) {
+      setErro((e as Error).message);
+      return null;
+    } finally {
+      setRodando(false);
+    }
+  };
+  return { rodando, rec, erro, disparar };
+}
+
+function Executar({ apiBase, env, params }: AbaProps) {
+  const [feature, setFeature] = useState(FEATURE_EXEMPLO);
+  const [resolucoes, setResolucoes] = useState<Resolucao[]>([]);
+  const { rodando, rec, erro, disparar } = useRun(apiBase);
+
+  const executar = async () => {
+    setResolucoes([]);
+    const fim = await disparar({ plugin: "ui-testing", env, featureText: feature, params });
+    const arq = fim?.result?.artifacts.find((a) => a.path.endsWith("resolucoes.json"));
+    if (arq) setResolucoes(await fetchFileJson<Resolucao[]>(apiBase, arq.path));
+  };
+
+  return (
+    <>
+      <textarea value={feature} onChange={(e) => setFeature(e.target.value)} spellCheck={false} aria-label="Arquivo .feature" />
+      <div className="linha" style={{ marginTop: 10 }}>
+        <button className="primario" onClick={executar} disabled={rodando}>{rodando ? "Executando…" : "Executar"}</button>
+      </div>
+      {erro && <pre>{erro}</pre>}
+      {rec && <Resultado apiBase={apiBase} rec={rec} />}
+      {resolucoes.length > 0 && (
+        <div className="card">
+          <h2>Como cada campo foi encontrado</h2>
+          <div className="tabela">
+            <table>
+              <thead><tr><th>Cenário</th><th>Tela</th><th>Rótulo</th><th>Estratégia</th><th>Localizador</th></tr></thead>
+              <tbody>
+                {resolucoes.map((r, i) => (
+                  <tr key={i}>
+                    <td>{r.cenario}</td><td>{r.tela}</td><td>{r.rotulo}</td>
+                    <td><span className="tag">{ESTRATEGIA[r.estrategia]}</span></td>
+                    <td><code>{r.como}</code></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+function Escanear({ apiBase, env, params }: AbaProps) {
+  const [paths, setPaths] = useState("/login, /painel");
+  const [mapas, setMapas] = useState<ScreenMap[]>([]);
+  const { rodando, rec, erro, disparar } = useRun(apiBase);
+
+  const escanear = async () => {
+    setMapas([]);
+    const fim = await disparar({ plugin: "ui-testing", env, params: { ...params, mode: "scan", paths } });
+    const arquivos = fim?.result?.artifacts.filter((a) => a.path.endsWith(".json")) ?? [];
+    setMapas(await Promise.all(arquivos.map((a) => fetchFileJson<ScreenMap>(apiBase, a.path))));
+  };
+
+  return (
+    <>
+      <div className="linha">
+        <label>
+          Telas (separadas por vírgula)
+          <input value={paths} onChange={(e) => setPaths(e.target.value)} size={40} />
+        </label>
+        <button className="primario" onClick={escanear} disabled={rodando}>{rodando ? "Escaneando…" : "Escanear"}</button>
+      </div>
+      {erro && <pre>{erro}</pre>}
+      {rec && <Resultado apiBase={apiBase} rec={rec} />}
+      {mapas.map((m) => (
+        <div className="card" key={m.screen}>
+          <h2>Tela <code>{m.screen}</code> · {m.elements.length} com testid · {m.missingTestid.length} sem</h2>
+          <div className="tabela">
+            <table>
+              <thead><tr><th>Elemento</th><th>Rótulo</th><th>{m.testIdAttribute}</th></tr></thead>
+              <tbody>
+                {m.elements.map((e, i) => (
+                  <tr key={`c${i}`}><td><code>&lt;{e.tag}&gt;</code></td><td>{e.label ?? "—"}</td><td><code className="passed">{e.testid}</code></td></tr>
+                ))}
+                {m.missingTestid.map((e, i) => (
+                  <tr key={`s${i}`}>
+                    <td><code>&lt;{e.tag}&gt;</code></td>
+                    <td>{e.label ?? "—"}</td>
+                    <td className="failed">
+                      sem testid{e.suggestedTestid && <> · sugerido <code>{e.suggestedTestid}</code></>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ))}
+    </>
+  );
+}
+
+const ICONE: Record<RunResult["status"], string> = { passed: "✓", failed: "✗", error: "✗", skipped: "–" };
+
+function Resultado({ apiBase, rec }: { apiBase: string; rec: RunRecord }) {
+  const r = rec.result;
+  const prints = r?.artifacts.filter((a) => a.kind === "screenshot") ?? [];
+  const falhas = r?.steps?.filter((s) => s.status === "failed" && s.error) ?? [];
+  return (
+    <div className="card">
+      <h2>
+        Resultado{" "}
+        {r ? <span className={`status ${r.status}`}>{r.status}</span> : <span className="status skipped">executando</span>}
+      </h2>
+      {r?.status === "error" && <pre>{r.error}</pre>}
+      {r?.steps && (
+        <ul className="passos">
+          {r.steps.map((s, i) => (
+            <li key={i} className={s.status}>
+              {ICONE[s.status]} {s.name} {s.status !== "skipped" && <small>({s.durationMs} ms)</small>}
+            </li>
+          ))}
+        </ul>
+      )}
+      {falhas.map((s, i) => <pre key={i}>{s.name}{"\n\n"}{s.error}</pre>)}
+      {prints.length > 0 && (
+        <div className="prints" style={{ marginTop: 12 }}>
+          {prints.map((p) => (
+            <a key={p.path} href={fileUrl(apiBase, p.path)} target="_blank" rel="noreferrer">
+              <img src={fileUrl(apiBase, p.path)} alt={p.label ?? "print"} />
+              {p.label}
+            </a>
+          ))}
+        </div>
+      )}
+      {!r && <pre className="log">{rec.logs.map((l) => l.msg).join("\n")}</pre>}
+    </div>
+  );
+}
