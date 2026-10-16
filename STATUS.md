@@ -2,6 +2,10 @@
 
 Onde o projeto parou e o que vem a seguir. (Arquitetura completa no [README](README.md).)
 
+> **Comandos atuais: veja "Começando" no README.** Os blocos de cada fase abaixo registram como a fase foi
+> verificada na época; os caminhos `examples/*/features` e `--url` são de antes dos projetos — hoje os
+> `.feature` ficam em `projetos/<id>/features/` e roda-se com `--project <id>`.
+
 ## Feito — F0 (contrato de plugin + esqueleto)
 
 - Monorepo **pnpm + Turborepo** (`apps/*`, `packages/*`).
