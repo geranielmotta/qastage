@@ -1,15 +1,13 @@
-import { resolve } from "node:path";
 import type { RunnerPlugin } from "@qastage/core-contract";
-import { listReports } from "./history";
 
 export { writeReport, type WriteReportInput, type WrittenReport } from "./write";
 export { listReports } from "./history";
 export type { FailurePackage, RunReport, RunSummary, ScenarioReport } from "./types";
 
 /**
- * O módulo de reports também é um plugin — sem executor: contribui rotas
- * (histórico de execuções) e um painel no shell. O runner é quem chama
- * writeReport ao fim de toda execução, de qualquer plugin.
+ * O módulo de reports também é um plugin — sem executor: contribui o painel
+ * de histórico no shell. O runner chama writeReport ao fim de toda execução,
+ * de qualquer plugin, e guarda o resumo no banco (GET /api/runs).
  */
 export const reportsPlugin: RunnerPlugin = {
   manifest: {
@@ -24,11 +22,4 @@ export const reportsPlugin: RunnerPlugin = {
       route: "/reports",
     },
   },
-  routes: [
-    {
-      method: "GET",
-      path: "/runs",
-      handle: async ({ query }) => listReports(resolve("artifacts"), Number(query.limit ?? 100), query.project || undefined),
-    },
-  ],
 };

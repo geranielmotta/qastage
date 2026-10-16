@@ -7,15 +7,25 @@
     "start": "tsx src/cli.ts",
     "dev": "tsx watch src/server.ts",
     "serve": "tsx src/server.ts",
-    "test": "tsx --test src/auth/*.test.ts"
+    "test": "NODE_ENV=test tsx --test src/**/*.test.ts",
+    "db:migrate": "tsx ../../node_modules/knex/bin/cli.js --knexfile knexfile.ts migrate:latest",
+    "db:rollback": "tsx ../../node_modules/knex/bin/cli.js --knexfile knexfile.ts migrate:rollback",
+    "db:status": "tsx ../../node_modules/knex/bin/cli.js --knexfile knexfile.ts migrate:status",
+    "db:make": "tsx ../../node_modules/knex/bin/cli.js --knexfile knexfile.ts migrate:make -x ts",
+    "db:seed": "tsx ../../node_modules/knex/bin/cli.js --knexfile knexfile.ts seed:run"
   },
   "dependencies": {
+    "@fastify/cookie": "11.1.2",
+    "@fastify/cors": "11.3.0",
     "@qastage/core-contract": "workspace:*",
-    "@qastage/plugin-example": "workspace:*",
-    "@qastage/plugin-ui": "workspace:*",
-    "@qastage/reports": "workspace:*",
     "@qastage/integrations": "workspace:*",
     "@qastage/plugin-api": "workspace:*",
-    "@qastage/plugin-load": "workspace:*"
+    "@qastage/plugin-example": "workspace:*",
+    "@qastage/plugin-load": "workspace:*",
+    "@qastage/plugin-ui": "workspace:*",
+    "@qastage/reports": "workspace:*",
+    "fastify": "5.12.5",
+    "knex": "3.3.0",
+    "pg": "8.23.1"
   }
 }

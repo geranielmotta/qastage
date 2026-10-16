@@ -8,10 +8,13 @@
 
 ## Começando
 
-Pré-requisitos: Node ≥ 20, pnpm (via Corepack) e, para carga, o k6 (`brew install k6`).
+Pré-requisitos: Node ≥ 20, pnpm (via Corepack), **PostgreSQL** (15+) e, para carga, o k6 (`brew install k6`).
 
 ```bash
 corepack enable && pnpm install
+createdb qastage && createdb qastage_test   # ou DATABASE_URL no .env
+pnpm db:migrate                          # cria as tabelas (knex)
+pnpm db:seed                             # opcional (dev): admin@qastage.local e qa@qastage.local, senha qastage123
 pnpm run ui-demo                         # site de demo        :4173
 pnpm run api-demo                        # API de demo         :4280 (2 bugs plantados)
 pnpm --filter @qastage/runner dev        # runner (API HTTP)   :4000
@@ -158,14 +161,37 @@ Como é protegido:
 
 - A regra vale **no runner**, não só na tela: projetos, `.feature`, execuções, histórico, relatórios e prints
   de projeto não atribuído respondem 403.
-- Senhas com **scrypt** + sal em `qastage-data/usuarios.json` (fora do git); a API nunca devolve o hash.
-- Sessão em cookie **HttpOnly** (12 h), CORS restrito às origens do shell (`QASTAGE_ALLOWED_ORIGINS`) e
+- Senhas com **scrypt** + sal no Postgres; a API nunca devolve o hash.
+- Sessão em cookie **HttpOnly** (12 h); o banco guarda só o **hash** do token (um dump não dá sessões utilizáveis), CORS restrito às origens do shell (`QASTAGE_ALLOWED_ORIGINS`) e
   escrita só com JSON (formulário de outro site não consegue disparar ações).
 - 5 senhas erradas seguidas bloqueiam aquele login por 1 minuto; a mensagem de erro não revela se o e-mail existe.
 - Sempre resta ao menos um administrador ativo.
-- O relatório registra **quem executou**.
+- O relatório e o histórico registram **quem executou**; a tabela `auditoria` guarda logins, gestão de usuários,
+  criação de projetos, arquivos salvos e execuções.
 - A **CLI** é ferramenta do operador da máquina do runner e não passa por login (quem tem acesso ao disco já tem os arquivos).
   Comandos: `usuarios listar | admin <email> <nome> | senha <email>`.
+
+## Banco de dados e API
+
+O runner é uma API **Fastify** sobre **PostgreSQL** (via **Knex**). No banco ficam usuários, atribuições de
+projeto, sessões, o histórico de execuções (resumo, contagens, falhas, card do Jira) e a auditoria. Continuam
+em arquivo o que precisa estar no git (config e `.feature` dos projetos) e os artefatos pesados (prints,
+traces, `report.html`), que o histórico referencia.
+
+| Comando | O que faz |
+| --- | --- |
+| `pnpm db:migrate` | aplica as migrations (`apps/runner/db/migrations`) |
+| `pnpm db:rollback` | desfaz o último lote |
+| `pnpm db:status` | migrations aplicadas e pendentes |
+| `pnpm db:seed` | usuários de desenvolvimento (idempotente; recusa rodar em produção) |
+| `pnpm --filter @qastage/runner db:make <nome>` | nova migration |
+| `pnpm run runner -- historico importar` | traz para o banco os `report.json` antigos (idempotente) |
+| `pnpm --filter @qastage/runner test` | testes da API inteira contra o banco `qastage_test` |
+
+- Configuração em [`apps/runner/knexfile.ts`](apps/runner/knexfile.ts) (`DATABASE_URL`, ambientes development/test/production).
+- O runner não sobe com migration pendente (mensagem diz o comando) e, ao subir, marca como interrompidas as
+  execuções que estavam rodando quando ele caiu.
+- Rotas em `apps/runner/src/http/rotas/`, com schema de validação nos corpos (campo desconhecido é recusado).
 
 ## Configuração do projeto (`qastage.config.json`)
 

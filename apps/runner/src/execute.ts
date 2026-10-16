@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import type { Logger, ProjectRef, RunContext, RunFinishedEvent, RunResult } from "@qastage/core-contract";
-import { writeReport } from "@qastage/reports";
+import { writeReport, type RunReport } from "@qastage/reports";
 import { loadProjectConfig, pluginParams, resolveEnv } from "./config";
 import { getProject, insideProject } from "./projects";
 import type { PluginRegistry } from "./registry";
@@ -27,6 +27,12 @@ export interface RunOutcome {
   result: RunResult;
   /** report.html gerado pelo módulo de reports (ausente se a gravação falhou). */
   reportHtml?: string;
+  /** O relatório gravado (report.json): o banco guarda o resumo dele. */
+  report?: RunReport;
+  /** Ambiente resolvido (nome), para o histórico. */
+  envName: string;
+  /** Log da execução, para o histórico. */
+  logs: string[];
   /**
    * Ganchos onRunFinished dos plugins (Jira...), já disparados em segundo plano.
    * A CLI aguarda para o processo não sair antes; a API não aguarda. Nunca rejeita.
@@ -86,10 +92,12 @@ export async function executeRun(registry: PluginRegistry, req: RunRequest, base
 
   // Relatório para toda execução, de qualquer plugin. Falhar aqui nunca derruba o resultado.
   let reportHtml: string | undefined;
+  let report: RunReport | undefined;
   let dirs: string[] = [];
   try {
     const w = writeReport({ artifactsRoot, artifactsDir, plugin: req.plugin, ...(project ? { project: { id: project.id, name: project.name } } : {}), ...(req.requestedBy ? { requestedBy: req.requestedBy } : {}), env: { name: ctx.env.name, baseUrl: ctx.env.apiUrl ?? ctx.env.baseUrl }, result, logs });
     reportHtml = w.htmlPath;
+    report = w.report;
     dirs = w.report.failures.map((f) => join(artifactsDir, f.dir));
   } catch (e) {
     baseLogger.warn(`Relatório não gravado: ${(e as Error).message}`);
@@ -106,7 +114,7 @@ export async function executeRun(registry: PluginRegistry, req: RunRequest, base
     logger: baseLogger,
   };
   const hooks = runHooks(registry, event);
-  return reportHtml ? { artifactsDir, result, reportHtml, hooks } : { artifactsDir, result, hooks };
+  return { artifactsDir, result, hooks, envName: ctx.env.name, logs, ...(reportHtml ? { reportHtml } : {}), ...(report ? { report } : {}) };
 }
 
 /** Chama onRunFinished de todos os plugins em paralelo; um gancho com erro não afeta os outros. */

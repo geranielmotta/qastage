@@ -237,7 +237,7 @@ disco, trocar de projeto, relatórios só do projeto; CLI por projeto, projeto i
 
 ## Feito — Usuários, papéis e permissões por projeto
 
-- **Contas** (admin / qa) em `qastage-data/usuarios.json` (fora do git), senha com scrypt + sal, gravação atômica.
+- **Contas** (admin / qa) com senha scrypt + sal (hoje no Postgres; ver a seção seguinte).
 - **Sessão** em cookie HttpOnly (12 h, em memória: reiniciar o runner desloga todos); CORS só para as origens do
   shell/painéis com credenciais; escrita só com `content-type: application/json`; bloqueio após 5 erros de login.
 - **Autorização no runner**: QA só lista/abre/executa/lê projetos atribuídos (inclusive `/artifacts`, `/api/files`,
@@ -251,13 +251,34 @@ Verificado: matriz de 18 permissões pela API, fluxo completo no navegador (prim
 QA vê só o dele, executa, relatório abre → URL direta de outro projeto negada → troca de senha → admin libera
 outro projeto → admin desativa e a QA cai para o login), testes unitários de usuários e acesso (5/5).
 
+## Feito — PostgreSQL (Knex) e API em Fastify
+
+- **Knex** com [`knexfile.ts`](apps/runner/knexfile.ts) (development/test/production, `DATABASE_URL`), migrations
+  em TypeScript (`usuarios`, `usuario_projetos`, `sessoes`, `execucoes`, `auditoria`) e seed idempotente de
+  usuários de dev. Scripts `pnpm db:migrate | db:rollback | db:status | db:seed`.
+- **Fastify** substitui o `node:http`: `buildApp()` testável com `inject`, rotas por assunto em `src/http/rotas/`,
+  autenticação num hook `onRequest` (rotas públicas marcadas), schemas nos corpos com campo desconhecido
+  recusado, `@fastify/cors` (origens + credenciais) e `@fastify/cookie`.
+- **Sessões no banco** (só o SHA-256 do token): reiniciar o runner não desloga mais ninguém.
+- **Histórico no banco**: cada execução vira linha (`running` → resultado, quem pediu, origem api/cli, falhas e o
+  card do Jira depois das integrações); dashboard e Relatórios consultam o banco (`GET /api/runs`), com a
+  janela "últimas 5 por projeto" numa query só. Execuções interrompidas por queda do runner são marcadas.
+- **Auditoria**: logins (inclusive falhos), gestão de usuários, projetos, arquivos salvos, execuções.
+- CLI registra suas execuções (`CLI (<usuário do SO>)`); sem banco, executa e avisa. `historico importar`
+  trouxe as 67 execuções anteriores.
+- Postgres local: havia um `postmaster.pid` órfão (PID reaproveitado após reboot) impedindo o serviço de subir;
+  foi renomeado para `postmaster.pid.velho` e o serviço reiniciado. Bancos criados: `qastage`, `qastage_test`.
+
+Verificado: 11 testes da API contra o `qastage_test` (permissões, histórico, defesas, bloqueio, auditoria,
+transação que impede ficar sem admin, schema), migrate/rollback, seeds, importação idempotente, CLI gravando,
+execução interrompida no reinício, sessão sobrevivendo ao reinício e o fluxo no navegador.
+
 ## Próximo
 
-1. **Gerador de testes** a partir do Swagger e de um usuário de teste (API completa; telas como esqueleto).
+1. **Gerador de testes** a partir do Swagger e de um usuário de teste.
 2. **Validar com um projeto real** da empresa.
-3. Sessões persistentes e login corporativo (SSO/LDAP) quando o QAStage virar serviço compartilhado.
-4. Matriz de navegadores e captura de sessão SSO dos sistemas testados.
-5. Deploy: runner como serviço (fila, artefatos em object storage), HTTPS (cookie `Secure`) e remotes publicados.
+3. Fila de execuções no banco (vários runners consumindo) e artefatos em object storage.
+4. Login corporativo (SSO/LDAP) e HTTPS (`QASTAGE_COOKIE_SECURE=true`) ao publicar.
 
 ## Futuro (documentado, não planejado)
 

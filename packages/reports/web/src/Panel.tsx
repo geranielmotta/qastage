@@ -2,17 +2,20 @@ import type { PanelProps } from "@qastage/core-contract";
 import { useCallback, useEffect, useState } from "react";
 import type { RunSummary } from "../../src/types";
 
-const ROTULO = { passed: "passou", failed: "falhou", error: "erro", skipped: "pulado" } as const;
+/** Linha do histórico (GET /api/runs): o resumo + onde está o relatório e quem executou. */
+type Execucao = Omit<RunSummary, "id" | "status"> & { id: string; status: RunSummary["status"] | "running"; reportId?: string; requestedBy?: string };
+
+const ROTULO = { passed: "passou", failed: "falhou", error: "erro", skipped: "pulado", running: "em execução" } as const;
 
 /** Painel de histórico: toda execução, de qualquer plugin, com o relatório e os pacotes de falha. */
 export default function Panel({ apiBase, project }: PanelProps) {
-  const [runs, setRuns] = useState<RunSummary[] | null>(null);
+  const [runs, setRuns] = useState<Execucao[] | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [filtro, setFiltro] = useState<"todas" | "falhas">("todas");
 
   const carregar = useCallback(() => {
-    fetch(`${apiBase}/api/plugins/reports/runs${project ? `?project=${encodeURIComponent(project.id)}` : ""}`, { credentials: "include" })
-      .then((r) => r.json() as Promise<RunSummary[]>)
+    fetch(`${apiBase}/api/runs${project ? `?project=${encodeURIComponent(project.id)}` : ""}`, { credentials: "include" })
+      .then((r) => r.json() as Promise<Execucao[]>)
       .then(setRuns)
       .catch(() => setErro("Não consegui ler o histórico no runner."));
   }, [apiBase, project]);
@@ -44,11 +47,14 @@ export default function Panel({ apiBase, project }: PanelProps) {
           <div className="linha">
             <span className={`selo ${r.status}`}>{ROTULO[r.status]}</span>
             <strong>{r.plugin}</strong>
-            <span className="sub">{r.env.name} · {new Date(r.startedAt).toLocaleString("pt-BR")} · {(r.durationMs / 1000).toFixed(1)} s</span>
+            <span className="sub">
+              {r.env.name} · {new Date(r.startedAt).toLocaleString("pt-BR")} · {(r.durationMs / 1000).toFixed(1)} s
+              {r.requestedBy && <> · {r.requestedBy}</>}
+            </span>
             <span className="sub">
               {r.counts.passed} ok · {r.counts.failed + r.counts.error} falha · {r.counts.skipped} pulado
             </span>
-            <a className="abrir" href={url(r.id, "report.html")} target="_blank" rel="noreferrer">Abrir relatório ↗</a>
+            {r.reportId && <a className="abrir" href={url(r.reportId, "report.html")} target="_blank" rel="noreferrer">Abrir relatório ↗</a>}
           </div>
           {r.failures.map((f) => (
             <div key={f.dir} className="falha">
@@ -56,8 +62,8 @@ export default function Panel({ apiBase, project }: PanelProps) {
               <div className="erro">{f.error.split("\n")[0]}</div>
               <div className="links">
                 Pacote para o dev:{" "}
-                <a href={url(r.id, `${f.dir}/falha.md`)} target="_blank" rel="noreferrer">falha.md</a> ·{" "}
-                <a href={url(r.id, `${f.dir}/falha.json`)} target="_blank" rel="noreferrer">falha.json</a>
+                <a href={url(r.reportId ?? "", `${f.dir}/falha.md`)} target="_blank" rel="noreferrer">falha.md</a> ·{" "}
+                <a href={url(r.reportId ?? "", `${f.dir}/falha.json`)} target="_blank" rel="noreferrer">falha.json</a>
                 {f.jira && (
                   <>
                     {" · "}Jira:{" "}

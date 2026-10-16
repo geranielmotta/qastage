@@ -1,5 +1,5 @@
 import { sep } from "node:path";
-import type { Usuario } from "./users";
+import type { Usuario } from "../db/usuarios";
 
 /** Admin vê tudo; QA só os projetos atribuídos a ele. */
 export function podeVerProjeto(u: Usuario, projetoId: string): boolean {

@@ -15,7 +15,11 @@
     "runner": "tsx apps/runner/src/cli.ts",
     "ui-demo": "node examples/ui-demo/server.mjs",
     "jira-fake": "node examples/jira-fake/server.mjs",
-    "api-demo": "node examples/api-demo/server.mjs"
+    "api-demo": "node examples/api-demo/server.mjs",
+    "db:migrate": "pnpm --filter @qastage/runner db:migrate",
+    "db:rollback": "pnpm --filter @qastage/runner db:rollback",
+    "db:status": "pnpm --filter @qastage/runner db:status",
+    "db:seed": "pnpm --filter @qastage/runner db:seed"
   },
   "devDependencies": {
     "@types/node": "^20.16.0",
