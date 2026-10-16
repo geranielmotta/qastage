@@ -4,6 +4,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { extname, join, relative, resolve, sep } from "node:path";
 import type { Logger, RunResult } from "@qastage/core-contract";
 import { createRegistry } from "./bootstrap";
+import { loadDotEnv } from "./env";
 import { executeRun, workspaceRoot, type RunRequest } from "./execute";
 
 /**
@@ -32,6 +33,7 @@ const PORT = Number(process.env.QASTAGE_PORT ?? 4000);
 // Caminhos relativos (artefatos, --maps) valem a partir da raiz do monorepo,
 // mesmo quando o servidor sobe de dentro de apps/runner (turbo dev).
 process.chdir(workspaceRoot());
+loadDotEnv();
 /** Só servimos arquivos de dentro do projeto (artefatos, mapas). */
 const ROOT = process.cwd();
 

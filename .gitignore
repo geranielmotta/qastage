@@ -8,3 +8,6 @@ artifacts/
 # Module Federation (gerados pelo plugin do Vite)
 @mf-types/
 .__mf__temp/
+
+# Segredos locais (Jira etc.) — use .env.example como modelo
+.env

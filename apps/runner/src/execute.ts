@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
-import type { Logger, RunContext, RunResult } from "@qastage/core-contract";
+import type { Logger, RunContext, RunFinishedEvent, RunResult } from "@qastage/core-contract";
 import { writeReport } from "@qastage/reports";
 import type { PluginRegistry } from "./registry";
 
@@ -20,6 +20,11 @@ export interface RunOutcome {
   result: RunResult;
   /** report.html gerado pelo módulo de reports (ausente se a gravação falhou). */
   reportHtml?: string;
+  /**
+   * Ganchos onRunFinished dos plugins (Jira...), já disparados em segundo plano.
+   * A CLI aguarda para o processo não sair antes; a API não aguarda. Nunca rejeita.
+   */
+  hooks: Promise<void>;
 }
 
 /** Raiz do monorepo (onde está o pnpm-workspace.yaml); cai no cwd se não achar. */
@@ -69,11 +74,37 @@ export async function executeRun(registry: PluginRegistry, req: RunRequest, base
   const result = await plugin.createExecutor().run(ctx);
 
   // Relatório para toda execução, de qualquer plugin. Falhar aqui nunca derruba o resultado.
+  let reportHtml: string | undefined;
+  let dirs: string[] = [];
   try {
-    const { htmlPath } = writeReport({ artifactsRoot, artifactsDir, plugin: req.plugin, env: req.env, result, logs });
-    return { artifactsDir, result, reportHtml: htmlPath };
+    const w = writeReport({ artifactsRoot, artifactsDir, plugin: req.plugin, env: req.env, result, logs });
+    reportHtml = w.htmlPath;
+    dirs = w.report.failures.map((f) => join(artifactsDir, f.dir));
   } catch (e) {
     baseLogger.warn(`Relatório não gravado: ${(e as Error).message}`);
-    return { artifactsDir, result };
   }
+
+  const event: RunFinishedEvent = {
+    plugin: req.plugin,
+    env: { name: req.env.name, baseUrl: req.env.baseUrl },
+    artifactsDir,
+    result,
+    failures: (result.failures ?? []).map((f, i) => (dirs[i] ? { ...f, packageDir: dirs[i] } : { ...f })),
+    reportPath: reportHtml,
+    logger: baseLogger,
+  };
+  const hooks = runHooks(registry, event);
+  return reportHtml ? { artifactsDir, result, reportHtml, hooks } : { artifactsDir, result, hooks };
+}
+
+/** Chama onRunFinished de todos os plugins em paralelo; um gancho com erro não afeta os outros. */
+async function runHooks(registry: PluginRegistry, event: RunFinishedEvent): Promise<void> {
+  await Promise.all(
+    registry
+      .list()
+      .filter((p) => p.onRunFinished)
+      .map((p) =>
+        p.onRunFinished!(event).catch((e: Error) => event.logger.warn(`Integração "${p.manifest.name}" falhou: ${e.message}`)),
+      ),
+  );
 }

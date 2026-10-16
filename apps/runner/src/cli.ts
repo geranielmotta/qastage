@@ -1,5 +1,6 @@
 import type { Logger } from "@qastage/core-contract";
 import { createRegistry } from "./bootstrap";
+import { loadDotEnv } from "./env";
 import { executeRun } from "./execute";
 
 const logger: Logger = {
@@ -32,6 +33,7 @@ function parseArgs(argv: string[]): ParsedArgs {
 }
 
 async function main(): Promise<void> {
+  loadDotEnv();
   const registry = createRegistry();
   // Alguns gerenciadores (pnpm) repassam um "--" literal; ignoramos esses tokens.
   const argv = process.argv.slice(2).filter((a) => a !== "--");
@@ -51,7 +53,7 @@ async function main(): Promise<void> {
     return;
   }
 
-  const { result, reportHtml } = await executeRun(
+  const { result, reportHtml, hooks } = await executeRun(
     registry,
     {
       plugin: pluginName,
@@ -74,6 +76,7 @@ async function main(): Promise<void> {
     logger.error(`Falha em "${f.scenario}" › ${f.step}`);
   }
   if (reportHtml) logger.info(`Relatório: ${reportHtml}`);
+  await hooks;
   if (result.status === "error" && result.error) logger.error(result.error);
   if (result.status !== "passed") process.exitCode = 1;
 }

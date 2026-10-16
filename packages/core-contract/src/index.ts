@@ -165,6 +165,24 @@ export interface PluginApiRoute {
   handle(req: PluginApiRequest): Promise<unknown>;
 }
 
+/** Falha com a pasta do pacote gravado pelo módulo de reports. Caminhos absolutos. */
+export interface FailureWithPackage extends FailureReport {
+  /** Pasta absoluta do pacote (falha.json, falha.md). */
+  packageDir?: string;
+}
+
+/** Evento entregue aos plugins ao fim de toda execução (já com o relatório gravado). */
+export interface RunFinishedEvent {
+  plugin: string;
+  env: { name: string; baseUrl: string };
+  artifactsDir: string;
+  result: RunResult;
+  failures: FailureWithPackage[];
+  /** report.html absoluto, quando gravado. */
+  reportPath?: string;
+  logger: Logger;
+}
+
 /** A metade "runner" de um plugin: o manifesto + a fábrica do executor. */
 export interface RunnerPlugin {
   manifest: PluginManifest;
@@ -172,4 +190,10 @@ export interface RunnerPlugin {
   createExecutor?(): Executor;
   /** Rotas HTTP extras do plugin (opcional). */
   routes?: PluginApiRoute[];
+  /**
+   * Chamado ao fim de toda execução, de qualquer plugin (ex.: integrations
+   * abre card no Jira). Roda em segundo plano: nunca atrasa nem derruba a
+   * execução — erros só viram aviso no log.
+   */
+  onRunFinished?(event: RunFinishedEvent): Promise<void>;
 }

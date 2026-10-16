@@ -51,5 +51,11 @@ export interface RunSummary {
         step: string;
         error: string;
         dir: string;
+        /** Card aberto/comentado pela integração (lido de falhas/NN/jira.json, gravado depois do relatório). */
+        jira?: {
+            key: string;
+            url: string;
+            action: "created" | "commented";
+        };
     }>;
 }

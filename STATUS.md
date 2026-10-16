@@ -101,14 +101,41 @@ pnpm run runner -- run ui-testing --url http://localhost:4173 --feature examples
 pnpm --filter @qastage/reports dev     # painel Relatórios :5175 (junto com runner, plugin-ui e shell)
 ```
 
-## Próximo — F3 (integrations/jira)
+## Feito — F3 (integrations/jira)
 
-1. Plugin `integrations` (sem executor): cria/atualiza card na falha a partir do `FailurePackage`, com
-   `falha.md` no corpo e prints anexados.
-2. Dedupe: chave = cenário + fingerprint da falha (passo + erro normalizado); card aberto → comentário.
-3. Assíncrono e opcional: nunca trava nem derruba a execução se o Jira estiver fora.
-4. Decidir o que fazer com o `trace.zip` (contém o valor de campos sensíveis): não anexar por padrão.
-5. Pendências antigas: config de ambientes/projeto no runner (hoje localStorage + campo do painel).
+- **Gancho `onRunFinished`** no contrato: todo plugin pode reagir ao fim de qualquer execução (já com o
+  relatório gravado). Roda em segundo plano, nunca atrasa nem derruba a execução; a CLI aguarda antes de sair.
+- **`@qastage/integrations`** (plugin sem executor): um card por falha, a partir do pacote do F2.
+  - **Cloud** (API v3, descrição em ADF, e-mail + API token) e **Server/DC** (API v2, wiki markup, PAT).
+    Detecta pelo domínio `*.atlassian.net` ou `QASTAGE_JIRA_FLAVOR`.
+  - **Dedupe:** fingerprint = plugin + cenário + passo + erro normalizado (números, ids e query strings
+    neutralizados), gravado como label `qastage-<fp>`. Card aberto → comentário; card fechado → card novo.
+  - **Anexos:** print da falha + `falha.md`. O `trace.zip` **não** é anexado por padrão
+    (`QASTAGE_JIRA_ATTACH_TRACE=true` libera), porque contém valores digitados.
+  - **Opcional e resiliente:** sem config não faz nada; timeout de 10 s e 2 novas tentativas em
+    rede/429/5xx; Jira fora → só um aviso no log. `QASTAGE_JIRA_ENVS` limita os ambientes.
+  - `falhas/NN/jira.json` guarda o card; o painel **Relatórios** mostra o link e se foi criado ou comentado.
+  - `GET /api/plugins/integrations/status?check=true` mostra a config (sem segredos) e testa as credenciais.
+- Config por `.env` na raiz (ignorado pelo git; modelo em [.env.example](.env.example)), carregado pela CLI e pela API.
+- **Jira de mentira** para desenvolver: `pnpm run jira-fake` (porta 4180, v2 e v3, `/_issues`, `/_down`).
+
+Verificado contra o fake: criação (Cloud e Server), comentário na repetição, card novo após fechar,
+Jira fora (execução segue, aviso no log), ambiente fora da lista, sem config (silencioso), e pela API
+HTTP + painel Relatórios com o link do card. **Não testado contra um Jira real.**
+
+```bash
+pnpm run jira-fake     # e no .env: as variáveis do bloco "Desenvolvimento local" do .env.example
+pnpm run runner -- run ui-testing --url http://localhost:4173 --feature examples/ui-demo/features/falha.feature --maps examples/ui-demo/qastage/maps
+curl -s localhost:4180/_issues   # card criado, labels, anexos
+```
+
+## Próximo
+
+- **Validar contra o Jira de vocês** (Cloud ou Server/DC): issue type obrigatório, campos customizados
+  obrigatórios do projeto e permissões de anexo variam por instância.
+- **F4 — api-testing:** ingestão de Swagger/Postman, corpo gerado pelo schema, validação da resposta (ajv), negativos.
+- Pendências: config de ambientes/projeto no runner (hoje localStorage + campo do painel);
+  comentar "voltou a passar" no card quando o cenário passar de novo.
 
 ## Decisões fixadas
 

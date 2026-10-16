@@ -13,7 +13,8 @@
     "lint": "turbo run lint",
     "test": "turbo run test",
     "runner": "tsx apps/runner/src/cli.ts",
-    "ui-demo": "node examples/ui-demo/server.mjs"
+    "ui-demo": "node examples/ui-demo/server.mjs",
+    "jira-fake": "node examples/jira-fake/server.mjs"
   },
   "devDependencies": {
     "@types/node": "^20.16.0",

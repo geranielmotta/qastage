@@ -1,10 +1,10 @@
 {
   "latestErrorEvent": {
     "code": "TYPE-001",
-    "message": "Failed to generate type declaration. Execute the below cmd to reproduce and fix the error. #TYPE-001\nargs: {\"cmd\":\"/Users/geranielmotta/.nvm/versions/node/v20.19.4/bin/node /Users/geranielmotta/Desktop/projetos/estudos/qastage/node_modules/typescript/bin/tsc --project /Users/geranielmotta/Desktop/projetos/estudos/qastage/packages/reports/web/node_modules/.federation/tsconfig.63becdf3c190ee357b29986ac884a586.json\"}\nView the docs to see how to solve: https://module-federation.io/guide/troubleshooting/type#type-001",
+    "message": "Failed to generate type declaration. Execute the below cmd to reproduce and fix the error. #TYPE-001\nargs: {\"cmd\":\"/Users/geranielmotta/.nvm/versions/node/v20.19.4/bin/node /Users/geranielmotta/Desktop/projetos/estudos/qastage/node_modules/typescript/bin/tsc --project /Users/geranielmotta/Desktop/projetos/estudos/qastage/packages/reports/web/node_modules/.federation/tsconfig.cef51b8fc240c95e0095fbe6b77657e0.json\"}\nView the docs to see how to solve: https://module-federation.io/guide/troubleshooting/type#type-001",
     "args": {
-      "cmd": "/Users/geranielmotta/.nvm/versions/node/v20.19.4/bin/node /Users/geranielmotta/Desktop/projetos/estudos/qastage/node_modules/typescript/bin/tsc --project /Users/geranielmotta/Desktop/projetos/estudos/qastage/packages/reports/web/node_modules/.federation/tsconfig.63becdf3c190ee357b29986ac884a586.json"
+      "cmd": "/Users/geranielmotta/.nvm/versions/node/v20.19.4/bin/node /Users/geranielmotta/Desktop/projetos/estudos/qastage/node_modules/typescript/bin/tsc --project /Users/geranielmotta/Desktop/projetos/estudos/qastage/packages/reports/web/node_modules/.federation/tsconfig.cef51b8fc240c95e0095fbe6b77657e0.json"
     },
-    "timestamp": 1792166702675
+    "timestamp": 1792167038208
   }
 }

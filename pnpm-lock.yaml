@@ -26,6 +26,9 @@ importers:
       '@qastage/core-contract':
         specifier: workspace:*
         version: link:../../packages/core-contract
+      '@qastage/integrations':
+        specifier: workspace:*
+        version: link:../../packages/integrations
       '@qastage/plugin-example':
         specifier: workspace:*
         version: link:../../packages/plugin-example
@@ -68,6 +71,12 @@ importers:
         version: 8.3.4(@types/node@20.19.43)(esbuild@0.28.2)(tsx@4.23.15)
 
   packages/core-contract: {}
+
+  packages/integrations:
+    dependencies:
+      '@qastage/core-contract':
+        specifier: workspace:*
+        version: link:../core-contract
 
   packages/plugin-example:
     dependencies:

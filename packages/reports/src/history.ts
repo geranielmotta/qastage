@@ -21,7 +21,16 @@ export function listReports(artifactsRoot: string, limit = 100): RunSummary[] {
           startedAt: r.startedAt,
           durationMs: r.durationMs,
           counts: r.counts,
-          failures: r.failures.map((f) => ({ scenario: f.scenario, step: f.step, error: f.error, dir: f.dir })),
+          failures: r.failures.map((f) => {
+            const jira = readJson<{ key: string; url: string; action: "created" | "commented" }>(join(artifactsRoot, r.id, f.dir, "jira.json"));
+            return {
+              scenario: f.scenario,
+              step: f.step,
+              error: f.error,
+              dir: f.dir,
+              ...(jira ? { jira: { key: jira.key, url: jira.url, action: jira.action } } : {}),
+            };
+          }),
         });
       } catch {
         /* relatório corrompido: ignora */
@@ -29,4 +38,12 @@ export function listReports(artifactsRoot: string, limit = 100): RunSummary[] {
     }
   }
   return out.sort((a, b) => b.startedAt.localeCompare(a.startedAt)).slice(0, limit);
+}
+
+function readJson<T>(file: string): T | undefined {
+  try {
+    return existsSync(file) ? (JSON.parse(readFileSync(file, "utf8")) as T) : undefined;
+  } catch {
+    return undefined;
+  }
 }

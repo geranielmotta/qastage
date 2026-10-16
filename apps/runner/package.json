@@ -12,6 +12,7 @@
     "@qastage/core-contract": "workspace:*",
     "@qastage/plugin-example": "workspace:*",
     "@qastage/plugin-ui": "workspace:*",
-    "@qastage/reports": "workspace:*"
+    "@qastage/reports": "workspace:*",
+    "@qastage/integrations": "workspace:*"
   }
 }

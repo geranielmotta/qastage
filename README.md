@@ -2,7 +2,7 @@
 
 > Plataforma de testes de QA: o QA escreve arquivos `.feature` e testa telas e APIs a partir deles. Extensível por plugins.
 
-**Status:** F0, F1 e F2 rodando — `ui-testing` (runner + painel) e `reports` (relatório navegável + pacote de falha). Detalhes no [STATUS](STATUS.md).
+**Status:** F0–F3 rodando — `ui-testing` (runner + painel), `reports` (relatório + pacote de falha) e `integrations` (card no Jira com dedupe). Detalhes no [STATUS](STATUS.md).
 
 ---
 
@@ -37,6 +37,9 @@ pnpm --filter @qastage/shell dev       # http://localhost:5173 → "Telas (UI)" 
 ```
 
 Toda execução grava `artifacts/<plugin>/<id>/report.html` e, por falha, `falhas/NN-cenario/falha.md`.
+
+Jira (opcional): copie [.env.example](.env.example) para `.env` e preencha. Para testar sem Jira real,
+`pnpm run jira-fake` sobe um Jira de mentira na porta 4180.
 
 O comando `run example` carrega o plugin de exemplo, executa o seu *executor* e
 grava um artefato em `artifacts/`. É a prova do contrato ponta a ponta do F0:

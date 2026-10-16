@@ -58,6 +58,13 @@ export default function Panel({ apiBase }: PanelProps) {
                 Pacote para o dev:{" "}
                 <a href={url(r.id, `${f.dir}/falha.md`)} target="_blank" rel="noreferrer">falha.md</a> ·{" "}
                 <a href={url(r.id, `${f.dir}/falha.json`)} target="_blank" rel="noreferrer">falha.json</a>
+                {f.jira && (
+                  <>
+                    {" · "}Jira:{" "}
+                    <a href={f.jira.url} target="_blank" rel="noreferrer">{f.jira.key}</a>{" "}
+                    <span className="tag">{f.jira.action === "created" ? "card criado" : "comentado (falha repetida)"}</span>
+                  </>
+                )}
               </div>
             </div>
           ))}
@@ -82,4 +89,5 @@ const css = `
 .qrep .falha { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--r-line); font-size: 14px; }
 .qrep .falha .erro { color: var(--r-fail); font-family: ui-monospace, Menlo, monospace; font-size: 12.5px; margin: 2px 0; }
 .qrep .falha .links { color: var(--r-muted); font-size: 13px; }
+.qrep .tag { font-size: 11px; padding: 1px 6px; border-radius: 4px; border: 1px solid var(--r-line); }
 `;

@@ -44,5 +44,12 @@ export interface RunSummary {
   startedAt: string;
   durationMs: number;
   counts: Record<RunStatus, number>;
-  failures: Array<{ scenario: string; step: string; error: string; dir: string }>;
+  failures: Array<{
+    scenario: string;
+    step: string;
+    error: string;
+    dir: string;
+    /** Card aberto/comentado pela integração (lido de falhas/NN/jira.json, gravado depois do relatório). */
+    jira?: { key: string; url: string; action: "created" | "commented" };
+  }>;
 }

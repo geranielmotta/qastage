@@ -1,5 +1,6 @@
 import { examplePlugin } from "@qastage/plugin-example";
 import { uiPlugin } from "@qastage/plugin-ui";
+import { integrationsPlugin } from "@qastage/integrations";
 import { reportsPlugin } from "@qastage/reports";
 import { PluginRegistry } from "./registry";
 
@@ -13,5 +14,6 @@ export function createRegistry(): PluginRegistry {
   registry.register(examplePlugin);
   registry.register(uiPlugin);
   registry.register(reportsPlugin);
+  registry.register(integrationsPlugin);
   return registry;
 }
