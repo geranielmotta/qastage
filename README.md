@@ -2,7 +2,28 @@
 
 > Plataforma de testes de QA: o QA escreve arquivos `.feature` e testa telas e APIs a partir deles. Extensível por plugins.
 
-**Status:** em desenho — F0 (contrato de plugin + esqueleto do monorepo).
+**Status:** F0 em andamento — contrato de plugin + esqueleto do monorepo rodando.
+
+---
+
+## Começando (F0)
+
+Pré-requisitos: Node ≥ 20 e pnpm (via Corepack).
+
+```bash
+corepack enable                 # habilita o pnpm (necessário também para o turbo)
+pnpm install                    # instala o workspace
+pnpm run runner list            # lista os plugins registrados
+pnpm run runner -- run example --env qa --url https://qa.exemplo.com
+pnpm build                      # typecheck de todos os pacotes (via Turborepo)
+```
+
+O comando `run example` carrega o plugin de exemplo, executa o seu *executor* e
+grava um artefato em `artifacts/`. É a prova do contrato ponta a ponta do F0:
+o runner não conhece o plugin por dentro, só o contrato (`@qastage/core-contract`).
+
+O coração do F0 é [`packages/core-contract`](packages/core-contract/src/index.ts):
+um plugin fornece um **executor** (Cucumber, k6 ou outro), não "passos de Cucumber".
 
 ---
 

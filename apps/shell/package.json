@@ -1,0 +1,10 @@
+{
+  "name": "@qastage/shell",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Host do micro-frontend (MFE) do QAStage. A implementar no F1.",
+  "scripts": {
+    "build": "node -e \"console.log('shell (MFE host) — a implementar no F1')\"",
+    "dev": "node -e \"console.log('shell (MFE host) — a implementar no F1')\""
+  }
+}

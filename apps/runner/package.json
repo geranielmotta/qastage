@@ -1,0 +1,13 @@
+{
+  "name": "@qastage/runner",
+  "version": "0.0.0",
+  "description": "Runner do QAStage: carrega plugins e executa seus executores.",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "start": "tsx src/cli.ts"
+  },
+  "dependencies": {
+    "@qastage/core-contract": "workspace:*",
+    "@qastage/plugin-example": "workspace:*"
+  }
+}

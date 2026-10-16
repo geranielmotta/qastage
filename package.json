@@ -1,0 +1,23 @@
+{
+  "name": "qastage",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Plataforma de testes de QA: escreva .feature, teste telas e APIs. Extensível por plugins.",
+  "packageManager": "pnpm@9.12.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "runner": "tsx apps/runner/src/cli.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^20.16.0",
+    "tsx": "^4.19.0",
+    "turbo": "^2.1.0",
+    "typescript": "^5.6.3"
+  }
+}

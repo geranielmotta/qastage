@@ -1,0 +1,13 @@
+{
+  "name": "@qastage/plugin-example",
+  "version": "0.0.0",
+  "description": "Plugin de exemplo que prova o contrato ponta a ponta.",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "build": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@qastage/core-contract": "workspace:*"
+  }
+}
