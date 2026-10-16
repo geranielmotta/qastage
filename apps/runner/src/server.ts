@@ -14,6 +14,7 @@ import { executeRun, workspaceRoot, type RunRequest } from "./execute";
  *   POST /api/runs             dispara uma execução → { id }
  *   GET  /api/runs/:id         estado, logs e resultado
  *   GET  /api/files?path=...   serve um artefato (print, mapa...) de dentro do projeto
+ *   *    /api/plugins/:nome/*  rotas contribuídas pelo próprio plugin (RunnerPlugin.routes)
  */
 
 interface RunRecord {
@@ -87,6 +88,7 @@ const server = createServer(async (req, res) => {
   // Dev: shell e remotes rodam em outras portas.
   res.setHeader("access-control-allow-origin", "*");
   res.setHeader("access-control-allow-headers", "content-type");
+  res.setHeader("access-control-allow-methods", "GET, POST, PUT, DELETE, OPTIONS");
   if (req.method === "OPTIONS") return void res.writeHead(204).end();
 
   const url = new URL(req.url ?? "/", "http://localhost");
@@ -114,6 +116,16 @@ const server = createServer(async (req, res) => {
       }
       res.writeHead(200, { "content-type": MIME[extname(path)] ?? "application/octet-stream" });
       return void createReadStream(path).pipe(res);
+    }
+
+    const rp = url.pathname.match(/^\/api\/plugins\/([\w-]+)(\/.*)$/);
+    if (rp) {
+      const plugin = registry.get(rp[1]!);
+      const rota = plugin.routes?.find((r) => r.method === req.method && r.path === rp[2]);
+      if (rota) {
+        const body = req.method === "GET" ? undefined : await readBody(req);
+        return json(res, 200, await rota.handle({ query: Object.fromEntries(url.searchParams), body }));
+      }
     }
 
     json(res, 404, { error: "Rota não encontrada" });

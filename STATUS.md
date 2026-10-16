@@ -59,6 +59,11 @@ Parâmetros do plugin (qualquer `--opção` que o runner não conhece vira param
 - **Painel do `ui-testing`** (`packages/plugin-ui/web`, remote `qastage_ui` na 5174): editor do
   `.feature` + execução, passos com status, prints, tabela "como cada campo foi encontrado";
   aba de scan com elementos com/sem testid e o testid sugerido.
+- **Rotas HTTP de plugin** (`RunnerPlugin.routes`, montadas em `/api/plugins/<nome>/...`). O ui-testing
+  expõe `GET /steps` (vocabulário, clicável no editor) e `GET|PUT /exceptions`.
+- **Exceção manual pelo painel:** quando um rótulo não resolve, o passo traz `details` estruturado e o
+  painel mostra um formulário (css/testid/texto/xpath, tela ou todas) que grava no `exceptions.json` e
+  reexecuta. Pasta de mapas restrita ao projeto.
 
 Verificado de verdade (Playwright dirigindo o shell): execução PASSED e scan pelas telas,
 sem erros no console; `vite build` do shell e do remote ok.
@@ -73,8 +78,6 @@ pnpm --filter @qastage/shell dev              # shell :5173 → abra e vá em "T
 
 ## Próximo
 
-- **Fechar o F1:** editar o `exceptions.json` pelo painel (botão "usar este seletor" no erro) e
-  listar o vocabulário de passos no editor (endpoint com `listSteps()`).
 - **F2 — reports & artifacts:** print por passo, relatório navegável, pacote estruturado de falha.
 - Config de ambientes/projeto no runner (hoje os ambientes ficam no localStorage do shell e a pasta
   de mapas é um campo do painel).

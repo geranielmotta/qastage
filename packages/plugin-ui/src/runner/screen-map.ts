@@ -63,15 +63,30 @@ export class MapStore {
     return file;
   }
 
-  /** Exceção da tela tem prioridade sobre a global ("*"). */
-  getException(screen: string, rotulo: string, normalize: (s: string) => string): ManualLocator | undefined {
+  readExceptions(): ExceptionsFile {
     if (!this.exceptions) {
       const file = join(this.dir, EXCEPTIONS_FILE);
       this.exceptions = existsSync(file) ? (JSON.parse(readFileSync(file, "utf8")) as ExceptionsFile) : {};
     }
+    return this.exceptions;
+  }
+
+  /** Grava (ou troca) a exceção manual de um rótulo numa tela. */
+  setException(screen: string, rotulo: string, locator: ManualLocator): string {
+    const todas = this.readExceptions();
+    todas[screen] = { ...todas[screen], [rotulo]: locator };
+    mkdirSync(this.dir, { recursive: true });
+    const file = join(this.dir, EXCEPTIONS_FILE);
+    writeFileSync(file, JSON.stringify(todas, null, 2) + "\n", "utf8");
+    return file;
+  }
+
+  /** Exceção da tela tem prioridade sobre a global ("*"). */
+  getException(screen: string, rotulo: string, normalize: (s: string) => string): ManualLocator | undefined {
+    const todas = this.readExceptions();
     const alvo = normalize(rotulo);
     for (const escopo of [screen, "*"]) {
-      for (const [chave, loc] of Object.entries(this.exceptions[escopo] ?? {})) {
+      for (const [chave, loc] of Object.entries(todas[escopo] ?? {})) {
         if (normalize(chave) === alvo) return loc;
       }
     }

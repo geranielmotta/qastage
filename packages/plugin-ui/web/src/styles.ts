@@ -29,4 +29,14 @@ export const css = `
 .qui .prints a { display: block; width: 240px; font-size: 12px; color: var(--q-muted); text-decoration: none; }
 .qui .prints img { width: 100%; border: 1px solid var(--q-line); border-radius: 6px; }
 .qui .tabela { overflow-x: auto; }
+.qui .editor { display: flex; gap: 12px; align-items: stretch; }
+.qui .editor textarea { flex: 1; min-width: 0; }
+.qui .vocab { width: 300px; flex-shrink: 0; display: flex; flex-direction: column; gap: 4px; max-height: 360px; overflow: auto; font-size: 13px; }
+.qui .vocab small { color: var(--q-muted); margin-bottom: 4px; }
+.qui .vocab button { text-align: left; padding: 4px 8px; }
+.qui .excecao { border: 1px solid var(--q-fail); border-radius: 8px; padding: 12px; margin-top: 12px; font-size: 14px; }
+.qui .excecao p { margin: 4px 0; }
+.qui .excecao ul { margin: 4px 0 10px; padding-left: 20px; font-size: 13px; }
+.qui .linha label.check { flex-direction: row; align-items: center; color: inherit; }
+@media (max-width: 800px) { .qui .editor { flex-direction: column; } .qui .vocab { width: auto; max-height: 200px; } }
 `;

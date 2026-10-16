@@ -1,6 +1,16 @@
 import type { PanelProps, RunResult } from "@qastage/core-contract";
-import { useState } from "react";
-import { fetchFileJson, fileUrl, runAndWait, type Resolucao, type RunRecord, type ScreenMap } from "./api";
+import { useEffect, useRef, useState } from "react";
+import {
+  fetchFileJson,
+  fetchSteps,
+  fileUrl,
+  runAndWait,
+  saveException,
+  type NaoEncontrado,
+  type Resolucao,
+  type RunRecord,
+  type ScreenMap,
+} from "./api";
 import { css } from "./styles";
 
 const FEATURE_EXEMPLO = `# language: pt
@@ -93,7 +103,29 @@ function useRun(apiBase: string) {
 function Executar({ apiBase, env, params }: AbaProps) {
   const [feature, setFeature] = useState(FEATURE_EXEMPLO);
   const [resolucoes, setResolucoes] = useState<Resolucao[]>([]);
+  const [passos, setPassos] = useState<string[]>([]);
+  const editor = useRef<HTMLTextAreaElement>(null);
   const { rodando, rec, erro, disparar } = useRun(apiBase);
+
+  useEffect(() => {
+    fetchSteps(apiBase).then(setPassos).catch(() => setPassos([]));
+  }, [apiBase]);
+
+  /** Insere o passo na linha seguinte à do cursor, com aspas vazias para o QA preencher. */
+  const inserir = (padrao: string) => {
+    const linha = "    E " + padrao.replace("(que )", "").replace(/\{string\}/g, '""');
+    const el = editor.current;
+    const pos = el ? feature.indexOf("\n", el.selectionStart) : -1;
+    const corte = pos === -1 ? feature.length : pos;
+    const novo = feature.slice(0, corte) + (feature.slice(0, corte).endsWith("\n") || corte === 0 ? "" : "\n") + linha + feature.slice(corte);
+    setFeature(novo);
+    requestAnimationFrame(() => {
+      if (!el) return;
+      const cursor = novo.indexOf(linha, corte) + linha.indexOf('""') + 1;
+      el.focus();
+      el.setSelectionRange(cursor, cursor);
+    });
+  };
 
   const executar = async () => {
     setResolucoes([]);
@@ -104,12 +136,25 @@ function Executar({ apiBase, env, params }: AbaProps) {
 
   return (
     <>
-      <textarea value={feature} onChange={(e) => setFeature(e.target.value)} spellCheck={false} aria-label="Arquivo .feature" />
+      <div className="editor">
+        <textarea ref={editor} value={feature} onChange={(e) => setFeature(e.target.value)} spellCheck={false} aria-label="Arquivo .feature" />
+        {passos.length > 0 && (
+          <aside className="vocab" aria-label="Passos disponíveis">
+            <strong>Passos disponíveis</strong>
+            <small>clique para inserir após o cursor</small>
+            {passos.map((p) => (
+              <button key={p} type="button" onClick={() => inserir(p)} title={p}>
+                <code>{p.replace("(que )", "").replace(/\{string\}/g, '"…"')}</code>
+              </button>
+            ))}
+          </aside>
+        )}
+      </div>
       <div className="linha" style={{ marginTop: 10 }}>
         <button className="primario" onClick={executar} disabled={rodando}>{rodando ? "Executando…" : "Executar"}</button>
       </div>
       {erro && <pre>{erro}</pre>}
-      {rec && <Resultado apiBase={apiBase} rec={rec} />}
+      {rec && <Resultado apiBase={apiBase} rec={rec} maps={params.maps!} onCorrigido={executar} />}
       {resolucoes.length > 0 && (
         <div className="card">
           <h2>Como cada campo foi encontrado</h2>
@@ -186,7 +231,15 @@ function Escanear({ apiBase, env, params }: AbaProps) {
 
 const ICONE: Record<RunResult["status"], string> = { passed: "✓", failed: "✗", error: "✗", skipped: "–" };
 
-function Resultado({ apiBase, rec }: { apiBase: string; rec: RunRecord }) {
+interface ResultadoProps {
+  apiBase: string;
+  rec: RunRecord;
+  /** Presentes na aba de execução: permitem gravar a exceção manual e reexecutar. */
+  maps?: string;
+  onCorrigido?: () => void;
+}
+
+function Resultado({ apiBase, rec, maps, onCorrigido }: ResultadoProps) {
   const r = rec.result;
   const prints = r?.artifacts.filter((a) => a.kind === "screenshot") ?? [];
   const falhas = r?.steps?.filter((s) => s.status === "failed" && s.error) ?? [];
@@ -206,7 +259,13 @@ function Resultado({ apiBase, rec }: { apiBase: string; rec: RunRecord }) {
           ))}
         </ul>
       )}
-      {falhas.map((s, i) => <pre key={i}>{s.name}{"\n\n"}{s.error}</pre>)}
+      {falhas.map((s, i) => {
+        const d = s.details as NaoEncontrado | undefined;
+        if (d?.kind === "elemento-nao-encontrado" && maps !== undefined && onCorrigido) {
+          return <Excecao key={i} apiBase={apiBase} maps={maps} falha={d} onSalvo={onCorrigido} />;
+        }
+        return <pre key={i}>{s.name}{"\n\n"}{s.error}</pre>;
+      })}
       {prints.length > 0 && (
         <div className="prints" style={{ marginTop: 12 }}>
           {prints.map((p) => (
@@ -218,6 +277,53 @@ function Resultado({ apiBase, rec }: { apiBase: string; rec: RunRecord }) {
         </div>
       )}
       {!r && <pre className="log">{rec.logs.map((l) => l.msg).join("\n")}</pre>}
+    </div>
+  );
+}
+
+const TIPOS = { css: "Seletor CSS", testid: "data-testid", text: "Texto exato", xpath: "XPath" } as const;
+
+/** Saída manual do QA: diz como achar o elemento e segue sem esperar o dev. */
+function Excecao({ apiBase, maps, falha, onSalvo }: { apiBase: string; maps: string; falha: NaoEncontrado; onSalvo: () => void }) {
+  const [tipo, setTipo] = useState<keyof typeof TIPOS>("css");
+  const [valor, setValor] = useState("");
+  const [todas, setTodas] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+
+  const salvar = async () => {
+    setErro(null);
+    try {
+      await saveException(apiBase, { maps, tela: todas ? "*" : falha.tela, rotulo: falha.rotulo, locator: { [tipo]: valor } });
+      onSalvo();
+    } catch (e) {
+      setErro((e as Error).message);
+    }
+  };
+
+  return (
+    <div className="excecao">
+      <p>
+        Não encontrei <strong>"{falha.rotulo}"</strong> na tela <code>{falha.tela}</code>. Tentei:
+      </p>
+      <ul>{falha.tentativas.map((t) => <li key={t}><code>{t}</code></li>)}</ul>
+      <p>Diga como achar esse elemento (vira uma exceção no mapa da tela):</p>
+      <div className="linha">
+        <label>
+          Tipo
+          <select value={tipo} onChange={(e) => setTipo(e.target.value as keyof typeof TIPOS)}>
+            {Object.entries(TIPOS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          </select>
+        </label>
+        <label>
+          Valor
+          <input value={valor} onChange={(e) => setValor(e.target.value)} size={30} placeholder={tipo === "css" ? ".btn-entrar" : ""} />
+        </label>
+        <label className="check">
+          <input type="checkbox" checked={todas} onChange={(e) => setTodas(e.target.checked)} /> valer em todas as telas
+        </label>
+        <button className="primario" disabled={!valor.trim()} onClick={salvar}>Salvar e executar de novo</button>
+      </div>
+      {erro && <pre>{erro}</pre>}
     </div>
   );
 }

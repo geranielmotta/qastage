@@ -91,6 +91,11 @@ export interface StepResult {
   status: RunStatus;
   durationMs: number;
   error?: string;
+  /**
+   * Dados estruturados da falha, para o painel do plugin agir sobre ela
+   * (ex.: o ui-testing manda o rótulo e a tela que não resolveram).
+   */
+  details?: Record<string, unknown>;
 }
 
 /** Resultado de uma execução completa, devolvido pelo executor ao runner. */
@@ -114,8 +119,29 @@ export interface Executor {
   run(ctx: RunContext): Promise<RunResult>;
 }
 
+/** Requisição recebida por uma rota HTTP de plugin. */
+export interface PluginApiRequest {
+  query: Record<string, string>;
+  body: unknown;
+}
+
+/**
+ * Rota HTTP contribuída pelo plugin, montada pelo runner em
+ * /api/plugins/<nome><path>. É por aqui que o painel do plugin conversa com a
+ * metade runner além de disparar execuções (vocabulário, exceções...).
+ */
+export interface PluginApiRoute {
+  method: "GET" | "POST" | "PUT" | "DELETE";
+  /** Começa com "/", ex.: "/steps". */
+  path: string;
+  /** Devolve o corpo JSON. Erro lançado vira 400 com { error }. */
+  handle(req: PluginApiRequest): Promise<unknown>;
+}
+
 /** A metade "runner" de um plugin: o manifesto + a fábrica do executor. */
 export interface RunnerPlugin {
   manifest: PluginManifest;
   createExecutor(): Executor;
+  /** Rotas HTTP extras do plugin (opcional). */
+  routes?: PluginApiRoute[];
 }

@@ -4,7 +4,7 @@ import { AstBuilder, GherkinClassicTokenMatcher, Parser, compile } from "@cucumb
 import { IdGenerator, type GherkinDocument, type Pickle } from "@cucumber/messages";
 import type { Artifact, Executor, RunContext, RunResult, StepResult } from "@qastage/core-contract";
 import { chromium, firefox, webkit, type Browser, type BrowserType } from "playwright";
-import { ElementResolver } from "./resolver";
+import { ElementNotFoundError, ElementResolver } from "./resolver";
 import { scanPage } from "./scan";
 import { MapStore } from "./screen-map";
 import { matchStep, type StepWorld } from "./steps";
@@ -120,7 +120,11 @@ export class UiExecutor implements Executor {
         } catch (e) {
           falhou = true;
           const error = (e as Error).message;
-          steps.push({ name: nome, status: "failed", durationMs: Date.now() - t0, error });
+          const falha: StepResult = { name: nome, status: "failed", durationMs: Date.now() - t0, error };
+          if (e instanceof ElementNotFoundError) {
+            falha.details = { kind: "elemento-nao-encontrado", rotulo: e.rotulo, tela: e.screen, tentativas: e.tentativas };
+          }
+          steps.push(falha);
           ctx.logger.error(`  ${nome}\n${error}`);
         }
       }

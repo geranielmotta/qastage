@@ -1,5 +1,6 @@
 import type { RunnerPlugin } from "@qastage/core-contract";
 import { UiExecutor } from "./runner/executor";
+import { uiRoutes } from "./runner/routes";
 
 export { listSteps } from "./runner/steps";
 export { slugify } from "./runner/text";
@@ -24,4 +25,5 @@ export const uiPlugin: RunnerPlugin = {
     },
   },
   createExecutor: () => new UiExecutor(),
+  routes: uiRoutes,
 };

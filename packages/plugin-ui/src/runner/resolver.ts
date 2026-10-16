@@ -35,6 +35,23 @@ interface Candidate {
  *
  * Nada achado → erro com o trecho pronto para colar no exceptions.json.
  */
+/** Nenhuma estratégia achou o rótulo. Carrega o que o painel precisa para oferecer a exceção manual. */
+export class ElementNotFoundError extends Error {
+  constructor(
+    readonly rotulo: string,
+    readonly screen: string,
+    readonly tentativas: string[],
+    readonly exceptionsFile: string,
+  ) {
+    const exemplo = JSON.stringify({ [screen]: { [rotulo]: { css: "<seletor css>" } } }, null, 2);
+    super(
+      `Não encontrei "${rotulo}" na tela "${screen}". Tentei:\n${tentativas.map((t) => `  - ${t}`).join("\n")}\n` +
+        `Para seguir sem esperar o dev, adicione em ${exceptionsFile}:\n${exemplo}\n` +
+        `(chaves aceitas: css, testid, text, xpath; use "*" no lugar da tela para valer em todas)`,
+    );
+  }
+}
+
 export class ElementResolver {
   constructor(
     private readonly store: MapStore,
@@ -68,13 +85,7 @@ export class ElementResolver {
       await page.waitForTimeout(200);
     }
 
-    const tentados = candidatos.map((c) => `  - ${c.detail}`).join("\n");
-    const exemplo = JSON.stringify({ [screen]: { [rotulo]: { css: "<seletor css>" } } }, null, 2);
-    throw new Error(
-      `Não encontrei "${rotulo}" na tela "${screen}". Tentei:\n${tentados}\n` +
-        `Para seguir sem esperar o dev, adicione em ${join(this.store.dir, EXCEPTIONS_FILE)}:\n${exemplo}\n` +
-        `(chaves aceitas: css, testid, text, xpath; use "*" no lugar da tela para valer em todas)`,
-    );
+    throw new ElementNotFoundError(rotulo, screen, candidatos.map((c) => c.detail), join(this.store.dir, EXCEPTIONS_FILE));
   }
 
   private candidates(page: Page, screen: string, rotulo: string, intent: Intent): Candidate[] {
