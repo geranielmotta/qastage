@@ -226,6 +226,35 @@ qastage/
 
 Cada plugin é um pacote com as duas pontas dentro. Workspace: pnpm + Turborepo. Front: Module Federation via `@module-federation/vite`, com os remotes registrados em runtime a partir do manifesto de cada plugin.
 
+## IA assistiva (versão futura)
+
+Não implementado — registrado para uma versão futura. Hoje o QAStage não usa nenhuma IA, e isso é proposital
+(princípio 2): achar campos, gerar corpo e validar contrato é tudo determinístico, sem custo por execução e
+com o mesmo resultado sempre.
+
+**Como entraria:** um módulo `ai` como **adapter opcional por projeto**, igual ao Jira. IA desligada ou fora
+do ar nunca impede um teste de rodar; o que ela sugere o QA confirma, e o resultado fica salvo para repetir igual.
+
+| Uso | Onde | Saída |
+| --- | --- | --- |
+| Sugerir seletor quando um campo não resolve | Formulário de exceção (ui-testing) | Seletor proposto; o QA confirma e vira exceção no mapa |
+| Rascunhar o `.feature` | A partir dos endpoints (api-testing) ou do mapa de uma tela | Rascunho no editor, para o QA revisar |
+| Resumir a falha | Card do Jira (integrations) | Parágrafo em linguagem simples no topo do card |
+| Valores de teste realistas | Campos que o módulo `data` não conhece | Valor gerado uma vez e salvo como fixture |
+
+**Provedor:** a empresa usa hoje o **GitHub Copilot**. O Copilot não oferece uma API genérica para um sistema
+terceiro chamar como assistente, então o caminho provável é o **GitHub Models** ou o **Azure OpenAI** — a
+confirmar com a área de TI/segurança antes de implementar. O adapter teria a forma:
+
+```
+QASTAGE_AI_PROVIDER=github-models | azure-openai | openai | anthropic | ollama | none   # padrão: none
+QASTAGE_AI_MODEL=...
+QASTAGE_AI_KEY=...
+```
+
+**Cuidados a definir:** o que pode ser enviado ao provedor (HTML de tela e corpo de API podem ter dado
+pessoal; segredos já são mascarados), custo por uso e cache das respostas.
+
 ## Roadmap por fases
 
 Começa pelas telas, que é a prioridade do time. Cada fase entrega valor usável.
@@ -238,7 +267,9 @@ Começa pelas telas, que é a prioridade do time. Cada fase entrega valor usáve
 | F3 | integrations/jira: card automático na falha, com dedupe | Falha abre/atualiza card com anexos |
 | F4 | api-testing: Swagger/Postman, schema, negativos | Endpoint validado contra o schema |
 | F5 | load-testing: k6 a partir dos endpoints e dados | Carga roda em homolog autorizado, com thresholds |
+| Futuro | ai (opcional): sugestão de seletor, rascunho de `.feature`, resumo de falha | Nenhum teste depende da IA para rodar |
 
 ## Decisões em aberto
 
+- **IA assistiva:** provedor (GitHub Models / Azure OpenAI, alinhado ao Copilot da empresa) e política de dados — ver "IA assistiva (versão futura)".
 - **SSO:** o fluxo exato varia por projeto (SAML/OIDC, MFA); cada projeto que usa SSO precisa de uma captura inicial de sessão.

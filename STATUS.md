@@ -172,6 +172,11 @@ pnpm run runner -- run api-testing --env qa --url http://localhost:4280 --featur
   `writable`, fonte de endpoints e pasta de mapas — hoje estão espalhados entre localStorage e campos dos painéis.
 - Validar a integração com o Jira real; comentar "voltou a passar" no card.
 
+## Futuro (documentado, não planejado)
+
+- **IA assistiva opcional** — seção "IA assistiva (versão futura)" do [README](README.md). A empresa usa o
+  GitHub Copilot; o provável é GitHub Models ou Azure OpenAI. Nada no caminho crítico depende de IA.
+
 ## Decisões fixadas
 
 - MFE: **Module Federation puro** (`@module-federation/vite`), remotes registrados em runtime.
