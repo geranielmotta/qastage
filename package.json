@@ -14,7 +14,8 @@
     "test": "turbo run test",
     "runner": "tsx apps/runner/src/cli.ts",
     "ui-demo": "node examples/ui-demo/server.mjs",
-    "jira-fake": "node examples/jira-fake/server.mjs"
+    "jira-fake": "node examples/jira-fake/server.mjs",
+    "api-demo": "node examples/api-demo/server.mjs"
   },
   "devDependencies": {
     "@types/node": "^20.16.0",

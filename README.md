@@ -2,7 +2,7 @@
 
 > Plataforma de testes de QA: o QA escreve arquivos `.feature` e testa telas e APIs a partir deles. Extensível por plugins.
 
-**Status:** F0–F3 rodando — `ui-testing` (runner + painel), `reports` (relatório + pacote de falha) e `integrations` (card no Jira com dedupe). Detalhes no [STATUS](STATUS.md).
+**Status:** F0–F4 rodando — `ui-testing`, `api-testing`, `reports` (relatório + pacote de falha) e `integrations` (Jira com dedupe), cada um com painel no shell. Detalhes no [STATUS](STATUS.md).
 
 ---
 
@@ -37,6 +37,15 @@ pnpm --filter @qastage/shell dev       # http://localhost:5173 → "Telas (UI)" 
 ```
 
 Toda execução grava `artifacts/<plugin>/<id>/report.html` e, por falha, `falhas/NN-cenario/falha.md`.
+
+Testes de API (F4), contra a API de demonstração (que tem 2 bugs plantados):
+
+```bash
+pnpm run api-demo                      # http://localhost:4280 (spec em /openapi.json)
+pnpm run runner -- run api-testing --env qa --url http://localhost:4280 --feature examples/api-demo/features/clientes.feature
+pnpm run runner -- run api-testing --env qa --url http://localhost:4280 --feature examples/api-demo/features/falhas.feature
+pnpm --filter @qastage/plugin-api dev  # painel "APIs" :5176
+```
 
 Jira (opcional): copie [.env.example](.env.example) para `.env` e preencha. Para testar sem Jira real,
 `pnpm run jira-fake` sobe um Jira de mentira na porta 4180.

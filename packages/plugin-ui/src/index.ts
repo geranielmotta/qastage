@@ -2,7 +2,7 @@ import type { RunnerPlugin } from "@qastage/core-contract";
 import { UiExecutor } from "./runner/executor";
 import { uiRoutes } from "./runner/routes";
 
-export { listSteps } from "./runner/steps";
+export { uiSteps } from "./runner/steps";
 export { slugify } from "./runner/text";
 export type { ScreenMap, ManualLocator, ExceptionsFile } from "./runner/screen-map";
 

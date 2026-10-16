@@ -1,0 +1,11 @@
+{
+  "name": "@qastage/data",
+  "version": "0.0.0",
+  "description": "Dados de teste: geradores BR válidos (CPF, CNPJ, CEP...) e preenchimento por nome de campo.",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "test": "tsx --test src/*.test.ts"
+  }
+}

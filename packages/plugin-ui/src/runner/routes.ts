@@ -1,7 +1,7 @@
 import { resolve, sep } from "node:path";
 import type { PluginApiRoute } from "@qastage/core-contract";
 import { MapStore, type ManualLocator } from "./screen-map";
-import { listSteps } from "./steps";
+import { uiSteps } from "./steps";
 
 /** A pasta de mapas vem do painel: só aceitamos caminhos dentro do projeto. */
 function mapsDir(raw: unknown): string {
@@ -18,7 +18,7 @@ export const uiRoutes: PluginApiRoute[] = [
   {
     method: "GET",
     path: "/steps",
-    handle: async () => listSteps(),
+    handle: async () => uiSteps.list(),
   },
   {
     method: "GET",

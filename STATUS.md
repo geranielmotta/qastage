@@ -129,13 +129,48 @@ pnpm run runner -- run ui-testing --url http://localhost:4173 --feature examples
 curl -s localhost:4180/_issues   # card criado, labels, anexos
 ```
 
+## Feito — F4 (api-testing)
+
+- **`@qastage/plugin-api`** (`api-testing`): fonte de endpoints como adapter — **OpenAPI 3**, **Swagger 2**
+  (JSON/YAML, link ou arquivo, `$ref` resolvido) e **Postman** v2 (`:id` → `{id}`, corpo de exemplo vira schema).
+  Tudo vira um modelo único de endpoint; sem LLM.
+- **Corpo gerado** pelo schema (required, enum, formatos, min/max, allOf, readOnly fora) com **valores do
+  módulo de dados** pelo nome do campo. Tabela `| campo | valor |` sobrescreve; `--seed` reproduz os dados.
+- **Contrato**: resposta validada com ajv contra o schema do status (exato → 4XX → default; status não
+  documentado = quebra de contrato). Dialeto OpenAPI (`nullable`, `readOnly`...) convertido antes.
+- **Negativos em lote**: "os campos obrigatórios de X devem ser exigidos" e "os tipos dos campos de X devem
+  ser validados" — uma variação por campo, exige 4xx, lista o que passou.
+- **Auth**: login por passo (tabela, token extraído da resposta) ou token direto; `${VAR}` lê do `.env`
+  (segredos fora do .feature); `{{var}}` usa valores guardados entre passos.
+- **Ambiente só-leitura respeitado**: em `homolog` (`writable: false`) POST/PUT/PATCH/DELETE são bloqueados
+  (login liberado).
+- Artefatos: cada requisição/resposta em JSON por passo (Authorization e segredos mascarados); pacote de
+  falha com o roteiro e o log das chamadas. Collection sem schema → passo de contrato fica "pulado", não trava.
+- **Painel "APIs"** (remote `qastage_api` :5176): carrega a fonte, lista endpoints, "+ cenário"/"+ negativos"
+  montam o Gherkin, executa e mostra cada troca HTTP. URL da API por ambiente.
+- Novos pacotes de base: **`@qastage/data`** (CPF/CNPJ/CEP/celular/nome/e-mail válidos, semente, campo
+  sensível), **`@qastage/feature`** (parser Gherkin + vocabulário, agora usado por UI e API) e
+  **`@qastage/web-kit`** (cliente do runner para os painéis).
+- Demo: `pnpm run api-demo` (:4280) com **2 bugs plantados** — `cep` obrigatório não validado e `telefone`
+  numérico fora do contrato; `falhas.feature` acha os dois.
+
+Verificado: `clientes.feature` passa (5 cenários), `falhas.feature` acusa os 2 bugs, homolog bloqueia escrita,
+segredos mascarados nos artefatos, testes unitários (data 4/4, api 5/5: OpenAPI, Swagger 2 YAML, Postman,
+nullable) e o painel no shell.
+
+```bash
+pnpm run api-demo
+pnpm run runner -- run api-testing --env qa --url http://localhost:4280 --feature examples/api-demo/features/clientes.feature
+pnpm run runner -- run api-testing --env qa --url http://localhost:4280 --feature examples/api-demo/features/falhas.feature
+```
+
 ## Próximo
 
-- **Validar contra o Jira de vocês** (Cloud ou Server/DC): issue type obrigatório, campos customizados
-  obrigatórios do projeto e permissões de anexo variam por instância.
-- **F4 — api-testing:** ingestão de Swagger/Postman, corpo gerado pelo schema, validação da resposta (ajv), negativos.
-- Pendências: config de ambientes/projeto no runner (hoje localStorage + campo do painel);
-  comentar "voltou a passar" no card quando o cenário passar de novo.
+- **F5 — load-testing (k6):** script gerado dos endpoints + dados, roda o k6, métricas no reports;
+  só em ambiente autorizado, com thresholds.
+- **Config de projeto no runner** (pendência que já incomoda): ambientes com `baseUrl` (front) e `apiUrl`,
+  `writable`, fonte de endpoints e pasta de mapas — hoje estão espalhados entre localStorage e campos dos painéis.
+- Validar a integração com o Jira real; comentar "voltou a passar" no card.
 
 ## Decisões fixadas
 

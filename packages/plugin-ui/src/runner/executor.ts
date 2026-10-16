@@ -1,13 +1,12 @@
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
-import { AstBuilder, GherkinClassicTokenMatcher, Parser, compile } from "@cucumber/gherkin";
-import { IdGenerator, type GherkinDocument, type Pickle } from "@cucumber/messages";
+import { mask, parseFeature } from "@qastage/feature";
 import type { Artifact, Executor, FailureReport, RunContext, RunResult, StepResult } from "@qastage/core-contract";
 import { chromium, firefox, webkit, type Browser, type BrowserType, type Page } from "playwright";
 import { ElementNotFoundError, ElementResolver } from "./resolver";
 import { scanPage } from "./scan";
 import { MapStore } from "./screen-map";
-import { mask, matchStep, sensitiveValue, type StepWorld } from "./steps";
+import { sensitiveValue, uiSteps, type StepWorld } from "./steps";
 import { slugify } from "./text";
 
 /** Parâmetros aceitos pelo plugin (vêm de RunContext.params). */
@@ -96,7 +95,7 @@ export class UiExecutor implements Executor {
   /** Executa cada cenário do .feature num contexto de navegador limpo. */
   private async runFeature(ctx: RunContext, params: UiParams, browser: Browser): Promise<Omit<RunResult, "startedAt" | "finishedAt">> {
     if (!ctx.featurePath) throw new Error("Informe o .feature: --feature caminho/arquivo.feature");
-    const { pickles, keywords } = parseFeature(resolve(ctx.featurePath));
+    const cenarios = parseFeature(resolve(ctx.featurePath));
     const resolver = new ElementResolver(new MapStore(params.mapsDir), params.testIdAttribute, params.timeoutMs);
 
     const steps: StepResult[] = [];
@@ -104,7 +103,7 @@ export class UiExecutor implements Executor {
     const failures: FailureReport[] = [];
     const resolucoes: Array<Record<string, string>> = [];
 
-    for (const [i, pickle] of pickles.entries()) {
+    for (const [i, pickle] of cenarios.entries()) {
       ctx.logger.info(`Cenário: ${pickle.name}`);
       // Cada cenário tem a sua pasta: 01-login-com-sucesso/03-....png
       const pasta = `${String(i + 1).padStart(2, "0")}-${slugify(pickle.name)}`;
@@ -124,7 +123,7 @@ export class UiExecutor implements Executor {
         // O segredo entra no conjunto antes do passo rodar: nem o nome do passo o carrega.
         const segredo = sensitiveValue(ps.text);
         if (segredo) world.secrets.add(segredo);
-        const passo = mask(`${keywords.get(ps.astNodeIds[0]!) ?? ""}${ps.text}`, world.secrets);
+        const passo = mask(`${ps.keyword}${ps.text}`, world.secrets);
         const base = { name: `${pickle.name} › ${passo}`, scenario: pickle.name };
         if (falha) {
           steps.push({ ...base, status: "skipped", durationMs: 0 });
@@ -134,8 +133,8 @@ export class UiExecutor implements Executor {
         const t0 = Date.now();
         const print = arquivo(`${String(n + 1).padStart(2, "0")}-${slugify(mask(ps.text, world.secrets)).slice(0, 60)}.png`);
         try {
-          const m = matchStep(ps.text);
-          await m.run(world, ...m.args);
+          const m = uiSteps.match(ps.text);
+          await m.run(world, m.args, ps.table);
           const r: StepResult = { ...base, status: "passed", durationMs: Date.now() - t0 };
           if (params.screenshots === "steps" && (await shot(page, print))) r.artifacts = [{ kind: "screenshot", path: print, label: passo }];
           steps.push(r);
@@ -216,22 +215,4 @@ function captureConsole(page: Page): string[] {
     if (r.status() >= 400) linhas.push(`${hora()} [rede] ${r.request().method()} ${r.url()} → ${r.status()}`);
   });
   return linhas;
-}
-
-/** Lê o .feature (qualquer idioma do Gherkin, ex.: "# language: pt") e expande em pickles. */
-function parseFeature(path: string): { pickles: readonly Pickle[]; keywords: Map<string, string> } {
-  const newId = IdGenerator.incrementing();
-  const doc: GherkinDocument = new Parser(new AstBuilder(newId), new GherkinClassicTokenMatcher()).parse(readFileSync(path, "utf8"));
-  const pickles = compile(doc, path, newId);
-
-  // O pickle perde a palavra-chave (Dado/Quando/Então); recuperamos pelo id do passo no AST.
-  const keywords = new Map<string, string>();
-  const visitar = (filhos: ReadonlyArray<{ background?: { steps: readonly { id: string; keyword: string }[] }; scenario?: { steps: readonly { id: string; keyword: string }[] }; rule?: { children: readonly unknown[] } }>) => {
-    for (const f of filhos) {
-      for (const s of [...(f.background?.steps ?? []), ...(f.scenario?.steps ?? [])]) keywords.set(s.id, s.keyword);
-      if (f.rule) visitar(f.rule.children as typeof filhos);
-    }
-  };
-  visitar(doc.feature?.children ?? []);
-  return { pickles, keywords };
 }

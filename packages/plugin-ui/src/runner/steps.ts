@@ -1,5 +1,6 @@
-import { CucumberExpression, ParameterTypeRegistry } from "@cucumber/cucumber-expressions";
 import type { Logger } from "@qastage/core-contract";
+import { isSensitiveField } from "@qastage/data";
+import { StepLibrary } from "@qastage/feature";
 import type { Page } from "playwright";
 import type { ElementResolver, Intent, Resolution } from "./resolver";
 import { screenKey } from "./text";
@@ -19,26 +20,14 @@ export interface StepWorld {
   timeoutMs: number;
 }
 
-type StepFn = (world: StepWorld, ...args: string[]) => Promise<void>;
+/** Vocabulário de passos de tela. */
+export const uiSteps = new StepLibrary<StepWorld>();
+const step = (pattern: string, run: (w: StepWorld, ...args: string[]) => Promise<void>) =>
+  uiSteps.step(pattern, (w, args) => run(w, ...args));
 
-interface StepDefinition {
-  pattern: string;
-  expression: CucumberExpression;
-  run: StepFn;
-}
-
-const registry = new ParameterTypeRegistry();
-const definitions: StepDefinition[] = [];
-
-function step(pattern: string, run: StepFn): void {
-  definitions.push({ pattern, expression: new CucumberExpression(pattern, registry), run });
-}
-
-/** Campos cujo valor nunca vai para relatório/pacote de falha (que podem virar anexo no Jira). */
-const SENSIVEL = /senha|password|passwd|token|secret|segredo|pin\b|cvv|api.?key/i;
 
 function registrar(w: StepWorld, campo: string, valor: string): void {
-  if (SENSIVEL.test(campo) && valor) {
+  if (isSensitiveField(campo) && valor) {
     w.secrets.add(valor);
     w.data[campo] = "••••••";
   } else {
@@ -128,40 +117,8 @@ step("eu devo estar em {string}", async (w, caminho) => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Troca valores sensíveis por "••••••" num texto (nome de passo, erro...). */
-export function mask(texto: string, secrets: Set<string>): string {
-  let out = texto;
-  for (const s of secrets) out = out.split(s).join("••••••");
-  return out;
-}
-
 /** Detecta, antes de executar, se o passo vai digitar um valor sensível. */
 export function sensitiveValue(texto: string): string | undefined {
   const m = texto.match(/eu preencho "([^"]*)" com "([^"]*)"/);
-  return m && SENSIVEL.test(m[1]!) && m[2] ? m[2] : undefined;
-}
-
-export interface MatchedStep {
-  pattern: string;
-  args: string[];
-  run: StepFn;
-}
-
-/** Acha o passo do vocabulário que casa com o texto; erro claro se nenhum ou vários. */
-export function matchStep(texto: string): MatchedStep {
-  const achados = definitions
-    .map((d) => ({ d, args: d.expression.match(texto) }))
-    .filter((x) => x.args !== null);
-  if (achados.length === 0) {
-    throw new Error(`Passo não reconhecido: "${texto}".\nPassos disponíveis:\n${listSteps().map((p) => `  - ${p}`).join("\n")}`);
-  }
-  if (achados.length > 1) {
-    throw new Error(`Passo ambíguo: "${texto}" casa com ${achados.map((x) => `"${x.d.pattern}"`).join(", ")}`);
-  }
-  const { d, args } = achados[0]!;
-  return { pattern: d.pattern, args: args!.map((a) => String(a.getValue(null))), run: d.run };
-}
-
-export function listSteps(): string[] {
-  return definitions.map((d) => d.pattern);
+  return m && isSensitiveField(m[1]!) && m[2] ? m[2] : undefined;
 }

@@ -1,0 +1,117 @@
+{
+  "openapi": "3.0.3",
+  "info": { "title": "API de clientes (demo QAStage)", "version": "1.0.0" },
+  "servers": [{ "url": "http://localhost:4280" }],
+  "components": {
+    "securitySchemes": { "bearer": { "type": "http", "scheme": "bearer" } },
+    "schemas": {
+      "NovoCliente": {
+        "type": "object",
+        "required": ["nome", "email", "cpf", "cep"],
+        "properties": {
+          "nome": { "type": "string", "minLength": 2 },
+          "email": { "type": "string", "format": "email" },
+          "cpf": { "type": "string", "pattern": "^\\d{11}$" },
+          "cep": { "type": "string" },
+          "telefone": { "type": "string" },
+          "tipo": { "type": "string", "enum": ["PF", "PJ"] },
+          "limiteCredito": { "type": "number", "minimum": 0 }
+        }
+      },
+      "Cliente": {
+        "allOf": [
+          { "$ref": "#/components/schemas/NovoCliente" },
+          {
+            "type": "object",
+            "required": ["id", "criadoEm"],
+            "properties": { "id": { "type": "integer" }, "criadoEm": { "type": "string", "format": "date-time" } }
+          }
+        ]
+      },
+      "Erro": {
+        "type": "object",
+        "required": ["mensagem"],
+        "properties": { "mensagem": { "type": "string" }, "campo": { "type": "string" } }
+      }
+    }
+  },
+  "security": [{ "bearer": [] }],
+  "paths": {
+    "/auth/login": {
+      "post": {
+        "operationId": "login",
+        "summary": "Autentica e devolve o token",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "senha"],
+                "properties": { "email": { "type": "string" }, "senha": { "type": "string" } }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "required": ["accessToken"], "properties": { "accessToken": { "type": "string" } } }
+              }
+            }
+          },
+          "401": { "description": "credenciais inválidas", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Erro" } } } }
+        }
+      }
+    },
+    "/clientes": {
+      "get": {
+        "operationId": "listarClientes",
+        "summary": "Lista clientes",
+        "parameters": [{ "name": "nome", "in": "query", "schema": { "type": "string" } }],
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Cliente" } } } }
+          },
+          "401": { "description": "sem token", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Erro" } } } }
+        }
+      },
+      "post": {
+        "operationId": "criarCliente",
+        "summary": "Cadastra cliente",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/NovoCliente" } } }
+        },
+        "responses": {
+          "201": { "description": "criado", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Cliente" } } } },
+          "400": { "description": "inválido", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Erro" } } } },
+          "401": { "description": "sem token", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Erro" } } } }
+        }
+      }
+    },
+    "/clientes/{id}": {
+      "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+      "get": {
+        "operationId": "buscarCliente",
+        "summary": "Busca cliente por id",
+        "responses": {
+          "200": { "description": "ok", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Cliente" } } } },
+          "404": { "description": "não existe", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Erro" } } } }
+        }
+      },
+      "delete": {
+        "operationId": "removerCliente",
+        "summary": "Remove cliente",
+        "responses": {
+          "204": { "description": "removido" },
+          "404": { "description": "não existe", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Erro" } } } }
+        }
+      }
+    }
+  }
+}

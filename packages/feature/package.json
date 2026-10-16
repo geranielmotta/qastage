@@ -1,0 +1,15 @@
+{
+  "name": "@qastage/feature",
+  "version": "0.0.0",
+  "description": "Base dos plugins guiados por Gherkin: lê o .feature e casa cada passo com o vocabulário do plugin.",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "build": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@cucumber/cucumber-expressions": "^20.1.0",
+    "@cucumber/gherkin": "^42.0.1",
+    "@cucumber/messages": "^34.2.1"
+  }
+}
