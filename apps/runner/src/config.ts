@@ -13,8 +13,7 @@ export function configPath(): string {
  * Lê e valida a config a cada chamada (barato): editar o arquivo vale na
  * próxima execução, sem reiniciar o runner. Sem arquivo → undefined.
  */
-export function loadProjectConfig(): ProjectConfig | undefined {
-  const file = configPath();
+export function loadProjectConfig(file = configPath()): ProjectConfig | undefined {
   if (!existsSync(file)) return undefined;
   let raw: unknown;
   try {
@@ -22,12 +21,12 @@ export function loadProjectConfig(): ProjectConfig | undefined {
   } catch (e) {
     throw new Error(`${file} não é um JSON válido: ${(e as Error).message}`);
   }
-  const erros = validate(raw);
+  const erros = validateConfig(raw);
   if (erros.length) throw new Error(`${file} inválido:\n${erros.map((e) => `  - ${e}`).join("\n")}`);
   return raw as ProjectConfig;
 }
 
-function validate(raw: unknown): string[] {
+export function validateConfig(raw: unknown): string[] {
   const erros: string[] = [];
   const c = raw as Partial<ProjectConfig>;
   if (!c || typeof c !== "object") return ["a config deve ser um objeto"];

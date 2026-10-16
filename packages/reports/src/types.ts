@@ -9,6 +9,7 @@ export interface RunReport {
   /** Pasta da execução relativa à raiz de artefatos, ex.: "ui-testing/1792165680981". */
   id: string;
   plugin: string;
+  project?: { id: string; name: string };
   env: { name: string; baseUrl: string };
   status: RunStatus;
   startedAt: string;
@@ -41,6 +42,7 @@ export interface FailurePackage extends FailureReport {
 export interface RunSummary {
   id: string;
   plugin: string;
+  project?: { id: string; name: string };
   env: { name: string; baseUrl: string };
   status: RunStatus;
   startedAt: string;

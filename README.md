@@ -2,73 +2,65 @@
 
 > Plataforma de testes de QA: o QA escreve arquivos `.feature` e testa telas e APIs a partir deles. Extensível por plugins.
 
-**Status:** roadmap F0–F5 entregue — `ui-testing`, `api-testing`, `load-testing` (k6), `reports` e `integrations` (Jira), cada um com painel no shell. Detalhes no [STATUS](STATUS.md).
+**Status:** roadmap F0–F5 entregue, com múltiplos projetos e dashboard — `ui-testing`, `api-testing`, `load-testing` (k6), `reports` e `integrations` (Jira), cada um com painel no shell. Detalhes no [STATUS](STATUS.md).
 
 ---
 
-## Começando (F0)
+## Começando
 
-Pré-requisitos: Node ≥ 20 e pnpm (via Corepack).
-
-```bash
-corepack enable                 # habilita o pnpm (necessário também para o turbo)
-pnpm install                    # instala o workspace
-pnpm run runner list            # lista os plugins registrados
-pnpm run runner -- run example --env qa --url https://qa.exemplo.com
-pnpm build                      # typecheck de todos os pacotes (via Turborepo)
-```
-
-As demos já têm um [`qastage.config.json`](qastage.config.json) (ambiente `local`): com ele, `--env local`
-substitui as URLs nos comandos abaixo.
-
-Testes de tela (F1), contra o site de demonstração:
+Pré-requisitos: Node ≥ 20, pnpm (via Corepack) e, para carga, o k6 (`brew install k6`).
 
 ```bash
-pnpm run ui-demo                # em outro terminal: http://localhost:4173
-pnpm run runner -- run ui-testing --url http://localhost:4173 --mode scan --paths /login,/painel --maps examples/ui-demo/qastage/maps
-pnpm run runner -- run ui-testing --url http://localhost:4173 --feature examples/ui-demo/features/login.feature --maps examples/ui-demo/qastage/maps
+corepack enable && pnpm install
+pnpm run ui-demo                         # site de demo        :4173
+pnpm run api-demo                        # API de demo         :4280 (2 bugs plantados)
+pnpm --filter @qastage/runner dev        # runner (API HTTP)   :4000
+pnpm --filter @qastage/shell dev         # shell               :5173  → dashboard de projetos
+pnpm --filter @qastage/plugin-ui dev     # painéis (remotes): telas :5174, relatórios :5175,
+pnpm --filter @qastage/reports dev       #   APIs :5176, carga :5177
+pnpm --filter @qastage/plugin-api dev
+pnpm --filter @qastage/plugin-load dev
+# com o pnpm no PATH, `pnpm dev` sobe runner, shell e painéis de uma vez (turbo)
 ```
 
-Pelo navegador (shell + painel federado):
+Abra http://localhost:5173, entre num projeto e siga os testes. Pela CLI:
 
 ```bash
-pnpm run ui-demo                       # site de demo  :4173
-pnpm --filter @qastage/runner dev      # API do runner :4000
-pnpm --filter @qastage/plugin-ui dev   # remote do painel :5174
-pnpm --filter @qastage/reports dev     # remote do histórico :5175
-pnpm --filter @qastage/shell dev       # http://localhost:5173 → "Telas (UI)" / "Relatórios"
+pnpm run runner -- projects                                                     # lista os projetos
+pnpm run runner -- run ui-testing   --project portal-demo  --feature features/ui/login.feature
+pnpm run runner -- run api-testing  --project api-clientes --feature features/api/clientes.feature
+pnpm run runner -- run load-testing --project api-clientes --feature features/carga/carga.feature
 ```
 
-Toda execução grava `artifacts/<plugin>/<id>/report.html` e, por falha, `falhas/NN-cenario/falha.md`.
-
-Testes de API (F4), contra a API de demonstração (que tem 2 bugs plantados):
-
-```bash
-pnpm run api-demo                      # http://localhost:4280 (spec em /openapi.json)
-pnpm run runner -- run api-testing --env qa --url http://localhost:4280 --feature examples/api-demo/features/clientes.feature
-pnpm run runner -- run api-testing --env qa --url http://localhost:4280 --feature examples/api-demo/features/falhas.feature
-pnpm --filter @qastage/plugin-api dev  # painel "APIs" :5176
-```
-
-Teste de carga (F5), com k6 instalado (`brew install k6`). Só roda em URL local ou em ambiente listado em
-`QASTAGE_LOAD_ENVS`:
-
-```bash
-pnpm run runner -- run load-testing --env qa --url http://localhost:4280 --feature examples/api-demo/features/carga.feature
-pnpm --filter @qastage/plugin-load dev  # painel "Carga" :5177
-```
+Toda execução grava `artifacts/<projeto>/<plugin>/<id>/report.html` e, por falha, `falhas/NN-cenario/falha.md`.
 
 Jira (opcional): copie [.env.example](.env.example) para `.env` e preencha. Para testar sem Jira real,
 `pnpm run jira-fake` sobe um Jira de mentira na porta 4180.
 
-O comando `run example` carrega o plugin de exemplo, executa o seu *executor* e
-grava um artefato em `artifacts/`. É a prova do contrato ponta a ponta do F0:
-o runner não conhece o plugin por dentro, só o contrato (`@qastage/core-contract`).
-
-O coração do F0 é [`packages/core-contract`](packages/core-contract/src/index.ts):
-um plugin fornece um **executor** (Cucumber, k6 ou outro), não "passos de Cucumber".
-
 ---
+
+## Projetos
+
+Um QA testa vários sistemas no mesmo dia; cada sistema é um **projeto**. A tela inicial do shell é o dashboard
+de projetos (ambientes, quantidade de cenários por tipo, últimas execuções); ao entrar, os painéis listam,
+abrem, salvam e executam os `.feature` daquele projeto, e o histórico é só dele.
+
+```
+projetos/
+  portal-clientes/
+    qastage.config.json      # ambientes, regras e padrões (ver abaixo)
+    features/
+      ui/*.feature           # telas      → ui-testing
+      api/*.feature          # APIs       → api-testing
+      carga/*.feature        # carga (k6) → load-testing
+    qastage/maps/            # mapas de tela do scan + exceptions.json
+```
+
+- **Novo projeto:** botão no dashboard (nome, URL do front, URL da API, Swagger) ou crie a pasta à mão.
+- **Projeto em outro repositório** (os `.feature` junto do código do sistema): liste o caminho em
+  `qastage.projects.json` na raiz do QAStage: `{ "projetos": ["../portal-clientes/qa"] }`.
+- Caminhos relativos (Swagger, mapas, `.feature`) valem a partir da pasta do projeto; nada sai dela.
+- Config inválida num projeto aparece no card dele, sem derrubar os outros.
 
 ## Visão e objetivos
 
@@ -151,7 +143,7 @@ Cada módulo (exceto o core) é um plugin com as duas metades descritas acima.
 
 ## Configuração do projeto (`qastage.config.json`)
 
-Cada projeto testado tem um `qastage.config.json` na raiz, versionado junto com os `.feature`. Ele substitui
+Cada projeto tem um `qastage.config.json` na sua pasta, versionado junto com os `.feature`. Ele substitui
 URLs digitadas em cada painel e regras fixas no código: o QA escolhe só o ambiente.
 
 ```json
@@ -181,7 +173,8 @@ URLs digitadas em cada painel e regras fixas no código: o QA escolhe só o ambi
 - CLI: `--env qa` basta; `--url` e `--apiUrl` sobrescrevem as URLs pontualmente.
 - Shell: lista os ambientes do arquivo (iguais para o time todo) e mostra "escrita"/"só leitura"/"carga".
 - Segredos **não** vão aqui: ficam no `.env` (ver `.env.example`).
-- Sem o arquivo, tudo continua funcionando no modo antigo (URL pela CLI/painel, homolog só leitura).
+- Sem projeto (CLI sem `--project`), vale um `qastage.config.json` na raiz do QAStage, se houver; sem nenhum,
+  o modo antigo (URL pela CLI, homolog só leitura).
 
 ## Adapters por projeto
 

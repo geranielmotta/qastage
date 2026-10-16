@@ -1,3 +1,4 @@
+import { resolve } from "node:path";
 import { isSensitiveField } from "@qastage/data";
 import { StepLibrary } from "@qastage/feature";
 import { deletePath, getPath, requiredFields, topLevelFields, wrongTypeFor } from "./body";
@@ -30,7 +31,8 @@ function statusCasa(status: number, esperado: string): boolean {
 // ── Fonte e autenticação ────────────────────────────────────────────────────
 
 step("(que )a API é descrita em {string}", async (w, [fonte]) => {
-  w.spec = await loadSpec(interpolate(w, fonte!));
+  const f = interpolate(w, fonte!);
+  w.spec = await loadSpec(/^https?:\/\//.test(f) ? f : resolve(w.baseDir, f));
   w.logger.info(`    spec: ${w.spec.title} (${w.spec.kind}, ${w.spec.endpoints.length} endpoints)`);
 });
 

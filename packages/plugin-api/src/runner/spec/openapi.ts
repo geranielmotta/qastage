@@ -11,9 +11,13 @@ function jsonContent(content?: Record<string, OpenAPIV3.MediaTypeObject>): [stri
   return entradas.find(([t]) => /json/i.test(t)) ?? entradas[0];
 }
 
-/** OpenAPI 3.x ou Swagger 2.0, por URL ou arquivo (JSON ou YAML), com $ref resolvidos. */
-export async function loadOpenApi(source: string): Promise<ApiSpec> {
-  const api = (await SwaggerParser.dereference(source)) as OpenAPI.Document;
+/**
+ * OpenAPI 3.x ou Swagger 2.0 (JSON ou YAML), com $ref resolvidos. `doc` é o
+ * documento já baixado: o resolvedor HTTP do swagger-parser recusa endereços
+ * internos (localhost, rede privada), justamente onde ficam os ambientes de QA.
+ */
+export async function loadOpenApi(source: string, doc?: object): Promise<ApiSpec> {
+  const api = (await SwaggerParser.dereference((doc ?? source) as string)) as OpenAPI.Document;
   const v2 = "swagger" in api;
   const raizSegura = ((api as { security?: unknown[] }).security ?? []).length > 0;
   const endpoints: Endpoint[] = [];

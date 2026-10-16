@@ -20,6 +20,7 @@
   "dependencies": {
     "@qastage/core-contract": "workspace:^",
     "react": "^19.3.1",
-    "react-dom": "^19.3.1"
+    "react-dom": "^19.3.1",
+    "@qastage/web-kit": "workspace:*"
   }
 }

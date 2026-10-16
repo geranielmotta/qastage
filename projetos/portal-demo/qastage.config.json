@@ -1,0 +1,12 @@
+{
+  "projeto": "Portal (demo de telas)",
+  "padrao": "local",
+  "ambientes": {
+    "local": { "front": "http://localhost:4173", "escrita": true },
+    "qa": { "front": "https://portal-qa.exemplo.com", "escrita": true },
+    "homolog": { "front": "https://portal-homolog.exemplo.com" }
+  },
+  "plugins": {
+    "ui-testing": { "maps": "qastage/maps" }
+  }
+}

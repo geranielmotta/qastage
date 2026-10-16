@@ -1,11 +1,11 @@
 # language: pt
 Funcionalidade: Cadastro de clientes pela API
 
-  # A fonte também pode vir do runner (--spec) ou ser um link: "http://localhost:4280/openapi.json".
+  # A fonte dos endpoints vem do qastage.config.json do projeto (plugins.api-testing.spec).
+  # Um .feature pode apontar outra: Dado que a API é descrita em "<link ou arquivo do projeto>".
   # Segredos podem vir do .env: | senha | ${DEMO_API_SENHA} |
   Contexto:
-    Dado que a API é descrita em "examples/api-demo/openapi.json"
-    E que eu faço login em "POST /auth/login" com:
+    Dado que eu faço login em "POST /auth/login" com:
       | email | qa@empresa.com |
       | senha | segredo        |
 

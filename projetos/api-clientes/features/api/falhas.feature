@@ -2,8 +2,7 @@
 Funcionalidade: Bugs plantados na API de demo (os testes devem achar)
 
   Contexto:
-    Dado que a API é descrita em "examples/api-demo/openapi.json"
-    E que eu faço login em "POST /auth/login" com:
+    Dado que eu faço login em "POST /auth/login" com:
       | email | qa@empresa.com |
       | senha | segredo        |
 

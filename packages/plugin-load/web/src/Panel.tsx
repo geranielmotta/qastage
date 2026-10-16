@@ -1,5 +1,5 @@
 import type { PanelProps, RunResult } from "@qastage/core-contract";
-import { fileUrl, runAndWait, type RunRecord } from "@qastage/web-kit";
+import { FeatureFiles, fileUrl, runAndWait, runTarget, type RunRecord } from "@qastage/web-kit";
 import { useState } from "react";
 import { css } from "./styles";
 
@@ -26,7 +26,7 @@ Funcionalidade: Carga na API de clientes
 const ICONE: Record<RunResult["status"], string> = { passed: "✓", failed: "✗", error: "✗", skipped: "–" };
 
 /** Painel do plugin load-testing: escreve a carga em Gherkin, roda o k6 no runner e mostra as métricas. */
-export default function Panel({ apiBase, env }: PanelProps) {
+export default function Panel({ apiBase, env, project, file }: PanelProps) {
   // Com qastage.config.json o ambiente já traz a URL da API e a autorização de carga.
   const daConfig = !!env.apiUrl;
   const [apiUrl, setApiUrl] = useState(() => {
@@ -46,7 +46,7 @@ export default function Panel({ apiBase, env }: PanelProps) {
     setErro(null);
     setRec(null);
     try {
-      await runAndWait(apiBase, { plugin: "load-testing", env: daConfig ? { name: env.name } : { ...env, baseUrl: apiUrl }, featureText: feature, params: {} }, setRec);
+      await runAndWait(apiBase, { plugin: "load-testing", ...(project || daConfig ? runTarget({ env, ...(project ? { project } : {}) }) : { env: { ...env, baseUrl: apiUrl } }), featureText: feature, params: {} }, setRec);
     } catch (e) {
       setErro((e as Error).message);
     } finally {
@@ -78,6 +78,9 @@ export default function Panel({ apiBase, env }: PanelProps) {
         </label>
         <button className="primario" onClick={executar} disabled={rodando}>{rodando ? "Executando carga…" : "Executar carga"}</button>
       </div>
+      {project && (
+        <FeatureFiles apiBase={apiBase} project={project} plugin="load-testing" folder="features/carga" text={feature} onOpen={setFeature} {...(file ? { initial: file } : {})} />
+      )}
       <textarea value={feature} onChange={(e) => setFeature(e.target.value)} spellCheck={false} aria-label="Arquivo .feature de carga" />
       {erro && <pre className="erro">{erro}</pre>}
 

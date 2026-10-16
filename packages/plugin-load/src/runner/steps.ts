@@ -1,3 +1,4 @@
+import { resolve } from "node:path";
 import { StepLibrary } from "@qastage/feature";
 import { loadSpec } from "@qastage/plugin-api";
 import type { LoadPlan } from "./plan";
@@ -23,7 +24,7 @@ const step = (pattern: string, run: (p: LoadPlan, args: string[], table?: string
   loadSteps.step(pattern, async (p, args, table) => run(p, args, table));
 
 step("(que )a API é descrita em {string}", async (p, [fonte]) => {
-  p.spec = await loadSpec(fonte!);
+  p.spec = await loadSpec(/^https?:\/\//.test(fonte!) ? fonte! : resolve(p.baseDir, fonte!));
 });
 
 step("(que )eu faço login em {string} com:", (p, [ref], table) => {

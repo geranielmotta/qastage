@@ -48,6 +48,17 @@ export interface PanelProps {
   env: { name: string; baseUrl: string; apiUrl?: string; authUrl?: string; writable?: boolean; allowLoad?: boolean };
   /** Padrões do plugin vindos da config do projeto (ex.: pasta de mapas, fonte do Swagger). */
   defaults?: Record<string, string | number | boolean>;
+  /** Projeto aberto no shell: o painel lista e salva os .feature dele e executa nele. */
+  project?: { id: string; name: string };
+  /** .feature a abrir de cara (relativo ao projeto), vindo da visão geral do projeto. */
+  file?: string;
+}
+
+/** Caminho relativo a partir da pasta do projeto (ou da raiz do QAStage, sem projeto). */
+export function projectPath(project: ProjectRef | undefined, path: string): string {
+  if (/^https?:\/\//.test(path) || path.startsWith("/")) return path;
+  const base = project?.dir ?? process.cwd();
+  return `${base.replace(/\/+$/, "")}/${path.replace(/^\.\//, "")}`;
 }
 
 /** Logger simples injetado no executor; o runner decide para onde vai. */
@@ -100,9 +111,20 @@ export interface EnvConfig {
   carga?: boolean;
 }
 
+/** Projeto em que a execução acontece (um QA alterna entre vários no mesmo dia). */
+export interface ProjectRef {
+  /** Identificador estável (nome da pasta), ex.: "portal-clientes". */
+  id: string;
+  name: string;
+  /** Pasta do projeto: caminhos relativos (Swagger, mapas, .feature) valem a partir dela. */
+  dir: string;
+}
+
 /** Contexto passado ao executor a cada execução. */
 export interface RunContext {
   env: ResolvedEnv;
+  /** Projeto da execução; sem projeto, caminhos relativos valem a partir da raiz do QAStage. */
+  project?: ProjectRef;
   /** Caminho do arquivo .feature, quando o executor é guiado por Gherkin. */
   featurePath?: string;
   /** Diretório onde o executor grava artefatos (prints, logs, har...). */
@@ -186,6 +208,8 @@ export interface Executor {
 export interface PluginApiRequest {
   query: Record<string, string>;
   body: unknown;
+  /** Projeto informado em ?project=<id> (resolvido pelo runner). */
+  project?: ProjectRef;
 }
 
 /**
@@ -210,6 +234,7 @@ export interface FailureWithPackage extends FailureReport {
 /** Evento entregue aos plugins ao fim de toda execução (já com o relatório gravado). */
 export interface RunFinishedEvent {
   plugin: string;
+  project?: ProjectRef;
   env: { name: string; baseUrl: string };
   artifactsDir: string;
   result: RunResult;

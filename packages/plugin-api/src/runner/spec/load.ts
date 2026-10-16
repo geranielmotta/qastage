@@ -1,5 +1,7 @@
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
 import type { ApiSpec, Endpoint } from "./model";
 import { loadOpenApi } from "./openapi";
 import { fromPostman, isPostman } from "./postman";
@@ -34,6 +36,17 @@ async function carregar(source: string): Promise<ApiSpec> {
     /* YAML: o swagger-parser resolve */
   }
   if (isPostman(doc)) return fromPostman(doc, source);
+  if (doc && typeof doc === "object") return loadOpenApi(source, doc);
+  if (/^https?:\/\//.test(source)) {
+    // YAML por URL: grava num temporário e deixa o parser ler como arquivo.
+    const tmp = join(mkdtempSync(join(tmpdir(), "qastage-spec-")), "spec.yaml");
+    writeFileSync(tmp, texto, "utf8");
+    try {
+      return { ...(await loadOpenApi(tmp)), source };
+    } finally {
+      rmSync(dirname(tmp), { recursive: true, force: true });
+    }
+  }
   return loadOpenApi(source);
 }
 

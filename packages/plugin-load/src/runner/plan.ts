@@ -26,6 +26,8 @@ export interface Threshold {
  */
 export interface LoadPlan {
   spec?: ApiSpec;
+  /** Pasta base de caminhos relativos (a do projeto). */
+  baseDir: string;
   login?: { ref: string; body: Record<string, string> };
   token?: string;
   /** Carga constante ou em rampa. */

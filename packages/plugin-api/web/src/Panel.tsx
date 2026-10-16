@@ -1,5 +1,5 @@
 import type { PanelProps, RunResult } from "@qastage/core-contract";
-import { fileUrl, getJson, pluginApi, runAndWait, type RunRecord } from "@qastage/web-kit";
+import { FeatureFiles, fileUrl, getJson, pluginApi, runAndWait, runTarget, withProject, type RunRecord } from "@qastage/web-kit";
 import { useEffect, useState } from "react";
 import { css } from "./styles";
 
@@ -24,15 +24,37 @@ interface Catalogo {
 const FONTE_PADRAO = "examples/api-demo/openapi.json";
 const KIND = { openapi3: "OpenAPI 3", swagger2: "Swagger 2", postman: "Postman" } as const;
 
-const cabecalho = (fonte: string) => `# language: pt
-Funcionalidade: API
+/** Endpoint de login: POST cujo caminho fala de login/auth/token/sessão. */
+function acharLogin(c: Catalogo | null): EndpointResumo | undefined {
+  return c?.endpoints.find((e) => e.method === "POST" && /login|auth|token|sess(ion|ao)|signin/i.test(e.path));
+}
 
-  Contexto:
-    Dado que a API é descrita em "${fonte}"
-    E que eu faço login em "POST /auth/login" com:
-      | email | qa@empresa.com |
-      | senha | segredo        |
-`;
+/** Variável do .env para cada campo de credencial: o valor nunca fica no .feature. */
+function variavel(campo: string): string {
+  if (/senha|pass/i.test(campo)) return "${QA_SENHA}";
+  if (/e-?mail|user|usuario|login/i.test(campo)) return "${QA_USUARIO}";
+  return `\${QA_${campo.toUpperCase()}}`;
+}
+
+/**
+ * Cabeçalho do rascunho. A fonte só entra quando não é a padrão do projeto;
+ * o login vem do Swagger (se houver endpoint de login) com credenciais do .env.
+ */
+function cabecalho(fonte: string | null, login?: EndpointResumo): string {
+  const linhas = ["# language: pt", "Funcionalidade: API", ""];
+  const contexto: string[] = [];
+  if (fonte) contexto.push(`Dado que a API é descrita em "${fonte}"`);
+  if (login) {
+    contexto.push(`${contexto.length ? "E" : "Dado"} que eu faço login em "${login.id}" com:`);
+    const largura = Math.max(...login.required.map((c) => c.length), 5);
+    for (const c of login.required.length ? login.required : ["usuario", "senha"]) contexto.push(`  | ${c.padEnd(largura)} | ${variavel(c)} |`);
+  }
+  if (contexto.length) {
+    linhas.push("  # Credenciais vêm do .env da raiz do QAStage (QA_USUARIO, QA_SENHA): nunca no .feature.");
+    linhas.push("  Contexto:", ...contexto.map((l) => `    ${l}`));
+  }
+  return linhas.join("\n") + "\n";
+}
 
 /** URL da API por ambiente: no shell o ambiente tem a URL do front; a da API pode ser outra. */
 function useApiUrl(env: PanelProps["env"]): [string, (v: string) => void] {
@@ -80,7 +102,7 @@ function negativosPara(e: EndpointResumo): string {
 }
 
 /** Painel do plugin api-testing: carrega a fonte, monta o .feature e executa. */
-export default function Panel({ apiBase, env, defaults }: PanelProps) {
+export default function Panel({ apiBase, env, defaults, project, file }: PanelProps) {
   // Com qastage.config.json o ambiente já traz a URL da API: o runner resolve pelo nome.
   const daConfig = !!env.apiUrl;
   const [apiUrl, setApiUrl] = useApiUrl(env);
@@ -88,7 +110,8 @@ export default function Panel({ apiBase, env, defaults }: PanelProps) {
   const [fonte, setFonte] = useState(fontePadrao);
   const [catalogo, setCatalogo] = useState<Catalogo | null>(null);
   const [erroFonte, setErroFonte] = useState<string | null>(null);
-  const [feature, setFeature] = useState(() => cabecalho(fontePadrao));
+  const ehPadrao = (f: string) => !!defaults?.spec && f === String(defaults.spec);
+  const [feature, setFeature] = useState(() => cabecalho(ehPadrao(fontePadrao) ? null : fontePadrao));
   const [rodando, setRodando] = useState(false);
   const [rec, setRec] = useState<RunRecord | null>(null);
   const [erro, setErro] = useState<string | null>(null);
@@ -96,9 +119,9 @@ export default function Panel({ apiBase, env, defaults }: PanelProps) {
   const carregar = async () => {
     setErroFonte(null);
     try {
-      const c = await getJson<Catalogo>(pluginApi(apiBase, "api-testing", `/endpoints?fresh=true&spec=${encodeURIComponent(fonte)}`));
+      const c = await getJson<Catalogo>(withProject(pluginApi(apiBase, "api-testing", `/endpoints?fresh=true&spec=${encodeURIComponent(fonte)}`), project));
       setCatalogo(c);
-      if (!feature.includes("Cenário:")) setFeature(cabecalho(fonte));
+      setFeature((atual) => (atual.includes("Cenário:") ? atual : cabecalho(ehPadrao(fonte) ? null : fonte, acharLogin(c))));
     } catch (e) {
       setCatalogo(null);
       setErroFonte((e as Error).message);
@@ -111,7 +134,7 @@ export default function Panel({ apiBase, env, defaults }: PanelProps) {
     setErro(null);
     setRec(null);
     try {
-      await runAndWait(apiBase, { plugin: "api-testing", env: daConfig ? { name: env.name } : { ...env, baseUrl: apiUrl }, featureText: feature, params: {} }, setRec);
+      await runAndWait(apiBase, { plugin: "api-testing", ...(project || daConfig ? runTarget({ env, ...(project ? { project } : {}) }) : { env: { ...env, baseUrl: apiUrl } }), featureText: feature, params: {} }, setRec);
     } catch (e) {
       setErro((e as Error).message);
     } finally {
@@ -173,6 +196,9 @@ export default function Panel({ apiBase, env, defaults }: PanelProps) {
           )}
         </section>
         <section className="editor">
+          {project && (
+            <FeatureFiles apiBase={apiBase} project={project} plugin="api-testing" folder="features/api" text={feature} onOpen={setFeature} {...(file ? { initial: file } : {})} />
+          )}
           <textarea value={feature} onChange={(e) => setFeature(e.target.value)} spellCheck={false} aria-label="Arquivo .feature" />
           <button className="primario" onClick={executar} disabled={rodando}>{rodando ? "Executando…" : "Executar"}</button>
         </section>

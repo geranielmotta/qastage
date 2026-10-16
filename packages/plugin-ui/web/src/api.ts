@@ -1,4 +1,4 @@
-import { pluginApi as pluginApiDe } from "@qastage/web-kit";
+import { pluginApi as pluginApiDe, withProject } from "@qastage/web-kit";
 
 export { fetchFileJson, fileUrl, runAndWait, type RunRecord } from "@qastage/web-kit";
 
@@ -37,9 +37,10 @@ export async function fetchSteps(apiBase: string): Promise<string[]> {
 
 export async function saveException(
   apiBase: string,
+  project: { id: string } | undefined,
   body: { maps: string; tela: string; rotulo: string; locator: Record<string, string> },
 ): Promise<void> {
-  const r = await fetch(pluginApi(apiBase, "/exceptions"), {
+  const r = await fetch(withProject(pluginApi(apiBase, "/exceptions"), project), {
     method: "PUT",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),

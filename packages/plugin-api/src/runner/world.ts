@@ -20,6 +20,8 @@ export interface Exchange {
 /** Estado de um cenário de API, compartilhado pelos passos. */
 export interface ApiWorld {
   spec?: ApiSpec;
+  /** Pasta base de caminhos relativos (a do projeto). */
+  baseDir: string;
   baseUrl: string;
   envName: string;
   /** Ambiente aceita escrita? Senão, POST/PUT/PATCH/DELETE são bloqueados. */

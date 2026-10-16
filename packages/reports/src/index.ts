@@ -28,7 +28,7 @@ export const reportsPlugin: RunnerPlugin = {
     {
       method: "GET",
       path: "/runs",
-      handle: async ({ query }) => listReports(resolve("artifacts"), Number(query.limit ?? 100)),
+      handle: async ({ query }) => listReports(resolve("artifacts"), Number(query.limit ?? 100), query.project || undefined),
     },
   ],
 };

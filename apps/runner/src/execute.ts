@@ -1,16 +1,19 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
-import type { Logger, RunContext, RunFinishedEvent, RunResult } from "@qastage/core-contract";
+import { dirname, isAbsolute, join, resolve } from "node:path";
+import type { Logger, ProjectRef, RunContext, RunFinishedEvent, RunResult } from "@qastage/core-contract";
 import { writeReport } from "@qastage/reports";
 import { loadProjectConfig, pluginParams, resolveEnv } from "./config";
+import { getProject, insideProject } from "./projects";
 import type { PluginRegistry } from "./registry";
 
 /** Pedido de execução, vindo da CLI ou da API HTTP. */
 export interface RunRequest {
   plugin: string;
+  /** Id do projeto (pasta em projetos/). Sem projeto: config da raiz, se houver. */
+  project?: string;
   /** Nome do ambiente (resolvido pela config do projeto) e sobrescritas opcionais de URL. */
   env: { name?: string; baseUrl?: string; apiUrl?: string; authUrl?: string };
-  /** Caminho de um .feature em disco... */
+  /** Caminho de um .feature em disco (relativo ao projeto, quando há projeto)... */
   featurePath?: string;
   /** ...ou o texto do .feature (o shell manda o que o QA escreveu). */
   featureText?: string;
@@ -41,8 +44,11 @@ export function workspaceRoot(from = process.cwd()): string {
 export async function executeRun(registry: PluginRegistry, req: RunRequest, baseLogger: Logger): Promise<RunOutcome> {
   const plugin = registry.get(req.plugin);
   if (!plugin.createExecutor) throw new Error(`O plugin "${req.plugin}" não executa testes.`);
+  const entry = req.project ? getProject(req.project) : undefined;
+  const project: ProjectRef | undefined = entry ? { id: entry.id, name: entry.name, dir: entry.dir } : undefined;
   const artifactsRoot = join(process.cwd(), "artifacts");
-  const artifactsDir = join(artifactsRoot, req.plugin, String(Date.now()));
+  // Histórico separado por projeto: artifacts/<projeto>/<plugin>/<execução>
+  const artifactsDir = join(artifactsRoot, project?.id ?? "_sem-projeto", req.plugin, String(Date.now()));
   mkdirSync(artifactsDir, { recursive: true });
 
   // O log da execução vai para o relatório, além do destino original.
@@ -55,14 +61,16 @@ export async function executeRun(registry: PluginRegistry, req: RunRequest, base
   };
 
   let featurePath = req.featurePath;
+  if (featurePath && project && !isAbsolute(featurePath) && !existsSync(featurePath)) featurePath = insideProject(project, featurePath);
   if (req.featureText !== undefined) {
     featurePath = join(artifactsDir, "cenario.feature");
     writeFileSync(featurePath, req.featureText, "utf8");
   }
 
-  const cfg = loadProjectConfig();
+  const cfg = entry ? entry.config : loadProjectConfig();
   const ctx: RunContext = {
     env: resolveEnv(cfg, req.env.name, req.env),
+    ...(project ? { project } : {}),
     featurePath,
     artifactsDir,
     logger,
@@ -78,7 +86,7 @@ export async function executeRun(registry: PluginRegistry, req: RunRequest, base
   let reportHtml: string | undefined;
   let dirs: string[] = [];
   try {
-    const w = writeReport({ artifactsRoot, artifactsDir, plugin: req.plugin, env: { name: ctx.env.name, baseUrl: ctx.env.apiUrl ?? ctx.env.baseUrl }, result, logs });
+    const w = writeReport({ artifactsRoot, artifactsDir, plugin: req.plugin, ...(project ? { project: { id: project.id, name: project.name } } : {}), env: { name: ctx.env.name, baseUrl: ctx.env.apiUrl ?? ctx.env.baseUrl }, result, logs });
     reportHtml = w.htmlPath;
     dirs = w.report.failures.map((f) => join(artifactsDir, f.dir));
   } catch (e) {
@@ -87,6 +95,7 @@ export async function executeRun(registry: PluginRegistry, req: RunRequest, base
 
   const event: RunFinishedEvent = {
     plugin: req.plugin,
+    ...(project ? { project } : {}),
     env: { name: ctx.env.name, baseUrl: ctx.env.apiUrl ?? ctx.env.baseUrl },
     artifactsDir,
     result,

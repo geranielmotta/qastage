@@ -1,4 +1,5 @@
 import type { PanelProps, RunResult } from "@qastage/core-contract";
+import { FeatureFiles, runTarget } from "@qastage/web-kit";
 import { useEffect, useRef, useState } from "react";
 import {
   fetchFileJson,
@@ -37,7 +38,7 @@ const ESTRATEGIA: Record<Resolucao["estrategia"], string> = {
 };
 
 /** Painel do plugin ui-testing: escreve/roda .feature e escaneia telas. */
-export default function Panel({ apiBase, env, defaults }: PanelProps) {
+export default function Panel({ apiBase, env, defaults, project, file }: PanelProps) {
   const [aba, setAba] = useState<"executar" | "scan">("executar");
   const [maps, setMaps] = useState(String(defaults?.maps ?? "qastage/maps"));
   const [browser, setBrowser] = useState("chromium");
@@ -68,9 +69,9 @@ export default function Panel({ apiBase, env, defaults }: PanelProps) {
         </label>
       </div>
       {aba === "executar" ? (
-        <Executar apiBase={apiBase} env={env} params={{ maps, browser }} />
+        <Executar apiBase={apiBase} env={env} {...(project ? { project } : {})} {...(file ? { file } : {})} params={{ maps, browser }} />
       ) : (
-        <Escanear apiBase={apiBase} env={env} params={{ maps, browser }} />
+        <Escanear apiBase={apiBase} env={env} {...(project ? { project } : {})} params={{ maps, browser }} />
       )}
     </div>
   );
@@ -100,7 +101,7 @@ function useRun(apiBase: string) {
   return { rodando, rec, erro, disparar };
 }
 
-function Executar({ apiBase, env, params }: AbaProps) {
+function Executar({ apiBase, env, params, project, file }: AbaProps) {
   const [feature, setFeature] = useState(FEATURE_EXEMPLO);
   const [resolucoes, setResolucoes] = useState<Resolucao[]>([]);
   const [passos, setPassos] = useState<string[]>([]);
@@ -129,13 +130,16 @@ function Executar({ apiBase, env, params }: AbaProps) {
 
   const executar = async () => {
     setResolucoes([]);
-    const fim = await disparar({ plugin: "ui-testing", env, featureText: feature, params });
+    const fim = await disparar({ plugin: "ui-testing", ...runTarget({ env, project }), featureText: feature, params });
     const arq = fim?.result?.artifacts.find((a) => a.path.endsWith("resolucoes.json"));
     if (arq) setResolucoes(await fetchFileJson<Resolucao[]>(apiBase, arq.path));
   };
 
   return (
     <>
+      {project && (
+        <FeatureFiles apiBase={apiBase} project={project} plugin="ui-testing" folder="features/ui" text={feature} onOpen={setFeature} {...(file ? { initial: file } : {})} />
+      )}
       <div className="editor">
         <textarea ref={editor} value={feature} onChange={(e) => setFeature(e.target.value)} spellCheck={false} aria-label="Arquivo .feature" />
         {passos.length > 0 && (
@@ -154,7 +158,7 @@ function Executar({ apiBase, env, params }: AbaProps) {
         <button className="primario" onClick={executar} disabled={rodando}>{rodando ? "Executando…" : "Executar"}</button>
       </div>
       {erro && <pre>{erro}</pre>}
-      {rec && <Resultado apiBase={apiBase} rec={rec} maps={params.maps!} onCorrigido={executar} />}
+      {rec && <Resultado apiBase={apiBase} rec={rec} maps={params.maps!} project={project} onCorrigido={executar} />}
       {resolucoes.length > 0 && (
         <div className="card">
           <h2>Como cada campo foi encontrado</h2>
@@ -178,14 +182,14 @@ function Executar({ apiBase, env, params }: AbaProps) {
   );
 }
 
-function Escanear({ apiBase, env, params }: AbaProps) {
+function Escanear({ apiBase, env, params, project }: AbaProps) {
   const [paths, setPaths] = useState("/login, /painel");
   const [mapas, setMapas] = useState<ScreenMap[]>([]);
   const { rodando, rec, erro, disparar } = useRun(apiBase);
 
   const escanear = async () => {
     setMapas([]);
-    const fim = await disparar({ plugin: "ui-testing", env, params: { ...params, mode: "scan", paths } });
+    const fim = await disparar({ plugin: "ui-testing", ...runTarget({ env, project }), params: { ...params, mode: "scan", paths } });
     const arquivos = fim?.result?.artifacts.filter((a) => a.path.endsWith(".json")) ?? [];
     setMapas(await Promise.all(arquivos.map((a) => fetchFileJson<ScreenMap>(apiBase, a.path))));
   };
@@ -236,10 +240,11 @@ interface ResultadoProps {
   rec: RunRecord;
   /** Presentes na aba de execução: permitem gravar a exceção manual e reexecutar. */
   maps?: string;
+  project?: PanelProps["project"];
   onCorrigido?: () => void;
 }
 
-function Resultado({ apiBase, rec, maps, onCorrigido }: ResultadoProps) {
+function Resultado({ apiBase, rec, maps, project, onCorrigido }: ResultadoProps) {
   const r = rec.result;
   // Um print por cenário: o do passo que falhou ou, se passou, o do último passo.
   const prints = [
@@ -273,7 +278,7 @@ function Resultado({ apiBase, rec, maps, onCorrigido }: ResultadoProps) {
       {falhas.map((s, i) => {
         const d = s.details as NaoEncontrado | undefined;
         if (d?.kind === "elemento-nao-encontrado" && maps !== undefined && onCorrigido) {
-          return <Excecao key={i} apiBase={apiBase} maps={maps} falha={d} onSalvo={onCorrigido} />;
+          return <Excecao key={i} apiBase={apiBase} maps={maps} project={project} falha={d} onSalvo={onCorrigido} />;
         }
         return <pre key={i}>{s.name}{"\n\n"}{s.error}</pre>;
       })}
@@ -295,7 +300,7 @@ function Resultado({ apiBase, rec, maps, onCorrigido }: ResultadoProps) {
 const TIPOS = { css: "Seletor CSS", testid: "data-testid", text: "Texto exato", xpath: "XPath" } as const;
 
 /** Saída manual do QA: diz como achar o elemento e segue sem esperar o dev. */
-function Excecao({ apiBase, maps, falha, onSalvo }: { apiBase: string; maps: string; falha: NaoEncontrado; onSalvo: () => void }) {
+function Excecao({ apiBase, maps, project, falha, onSalvo }: { apiBase: string; maps: string; project: PanelProps["project"]; falha: NaoEncontrado; onSalvo: () => void }) {
   const [tipo, setTipo] = useState<keyof typeof TIPOS>("css");
   const [valor, setValor] = useState("");
   const [todas, setTodas] = useState(false);
@@ -304,7 +309,7 @@ function Excecao({ apiBase, maps, falha, onSalvo }: { apiBase: string; maps: str
   const salvar = async () => {
     setErro(null);
     try {
-      await saveException(apiBase, { maps, tela: todas ? "*" : falha.tela, rotulo: falha.rotulo, locator: { [tipo]: valor } });
+      await saveException(apiBase, project, { maps, tela: todas ? "*" : falha.tela, rotulo: falha.rotulo, locator: { [tipo]: valor } });
       onSalvo();
     } catch (e) {
       setErro((e as Error).message);

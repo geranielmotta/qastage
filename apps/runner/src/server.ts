@@ -1,23 +1,30 @@
 import { randomUUID } from "node:crypto";
-import { createReadStream, existsSync, statSync } from "node:fs";
+import { createReadStream, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import { extname, join, relative, resolve, sep } from "node:path";
+import { dirname, extname, join, relative, resolve, sep } from "node:path";
 import type { Logger, RunResult } from "@qastage/core-contract";
 import { createRegistry } from "./bootstrap";
 import { CONFIG_FILE, loadProjectConfig, resolveEnv } from "./config";
 import { loadDotEnv } from "./env";
+import { createProject, featureFile, getProject, listFeatures, listProjects, type NewProject } from "./projects";
+import { listReports } from "@qastage/reports";
 import { executeRun, workspaceRoot, type RunRequest } from "./execute";
 
 /**
  * API HTTP do runner, consumida pelo shell. O shell nunca roda Playwright:
  * ele pede a execução aqui e acompanha o resultado por polling.
  *
+ *   GET  /api/projects                     projetos (dashboard): ambientes, testes, últimas execuções
+ *   POST /api/projects                     cria projetos/<id>/ com a config mínima
+ *   GET  /api/projects/:id                 config resolvida do projeto (ambientes, padrões por plugin)
+ *   GET  /api/projects/:id/features        .feature do projeto, por plugin
+ *   GET|PUT /api/projects/:id/file?path=   lê/grava um .feature do projeto
  *   GET  /api/plugins          manifestos (o shell carrega os remotes a partir daqui)
  *   POST /api/runs             dispara uma execução → { id }
  *   GET  /api/runs/:id         estado, logs e resultado
  *   GET  /api/files?path=...   serve um artefato (print, mapa...) de dentro do projeto
  *   GET  /artifacts/...        pasta de artefatos como site estático (report.html e seus links relativos)
- *   *    /api/plugins/:nome/*  rotas contribuídas pelo próprio plugin (RunnerPlugin.routes)
+ *   *    /api/plugins/:nome/*  rotas contribuídas pelo próprio plugin (RunnerPlugin.routes); ?project=<id>
  */
 
 interface RunRecord {
@@ -100,8 +107,18 @@ function validRunRequest(body: unknown): RunRequest {
   const str = (v: unknown) => (typeof v === "string" && v ? v : undefined);
   return {
     plugin: b.plugin,
+    ...(typeof b.project === "string" && b.project ? { project: b.project } : {}),
     env: { name: str(e.name), baseUrl: str(e.baseUrl), apiUrl: str(e.apiUrl), authUrl: str(e.authUrl) },
     featureText: typeof b.featureText === "string" ? b.featureText : undefined,
+    // Arquivo em disco só de dentro de um projeto (features/...); fora disso, use featureText.
+    featurePath:
+      typeof b.featurePath === "string" && b.featurePath
+        ? typeof b.project === "string" && b.project
+          ? (featureFile(getProject(b.project), b.featurePath), b.featurePath)
+          : (() => {
+              throw new Error("featurePath exige project");
+            })()
+        : undefined,
     params: b.params ?? {},
   };
 }
@@ -115,6 +132,65 @@ const server = createServer(async (req, res) => {
 
   const url = new URL(req.url ?? "/", "http://localhost");
   try {
+    if (url.pathname === "/api/projects") {
+      if (req.method === "POST") {
+        const p = createProject((await readBody(req)) as NewProject);
+        return json(res, 201, { id: p.id, name: p.name });
+      }
+      if (req.method === "GET") {
+        const artifacts = join(ROOT, "artifacts");
+        return json(
+          res,
+          200,
+          listProjects().map((p) => {
+            const base = { id: p.id, name: p.name, dir: relative(ROOT, p.dir) || "." };
+            if (p.error) return { ...base, error: p.error };
+            const features = listFeatures(p);
+            const porPlugin: Record<string, number> = {};
+            for (const f of features) porPlugin[f.plugin] = (porPlugin[f.plugin] ?? 0) + f.scenarios;
+            const runs = listReports(artifacts, 5, p.id);
+            return {
+              ...base,
+              padrao: p.config!.padrao ?? Object.keys(p.config!.ambientes)[0],
+              ambientes: Object.keys(p.config!.ambientes).map((n) => resolveEnv(p.config, n)),
+              cenarios: porPlugin,
+              arquivos: features.length,
+              ultimas: runs.map((r) => ({ id: r.id, plugin: r.plugin, status: r.status, startedAt: r.startedAt, env: r.env.name, counts: r.counts })),
+            };
+          }),
+        );
+      }
+    }
+
+    const mp = url.pathname.match(/^\/api\/projects\/([\w-]+)(\/features|\/file)?$/);
+    if (mp) {
+      const p = getProject(mp[1]!);
+      if (!mp[2] && req.method === "GET") {
+        return json(res, 200, {
+          id: p.id,
+          name: p.name,
+          padrao: p.config!.padrao ?? Object.keys(p.config!.ambientes)[0],
+          ambientes: Object.keys(p.config!.ambientes).map((n) => resolveEnv(p.config, n)),
+          plugins: p.config!.plugins ?? {},
+        });
+      }
+      if (mp[2] === "/features" && req.method === "GET") return json(res, 200, listFeatures(p));
+      if (mp[2] === "/file") {
+        const file = featureFile(p, url.searchParams.get("path") ?? "");
+        if (req.method === "GET") {
+          if (!existsSync(file)) return json(res, 404, { error: "Arquivo não encontrado" });
+          return json(res, 200, { path: url.searchParams.get("path"), text: readFileSync(file, "utf8") });
+        }
+        if (req.method === "PUT") {
+          const { text } = (await readBody(req)) as { text?: string };
+          if (typeof text !== "string") throw new Error("Campo obrigatório: text");
+          mkdirSync(dirname(file), { recursive: true });
+          writeFileSync(file, text, "utf8");
+          return json(res, 200, { ok: true });
+        }
+      }
+    }
+
     if (req.method === "GET" && url.pathname === "/api/config") {
       // Ambientes já resolvidos (o shell não reimplementa a regra) + padrões por plugin.
       const cfg = loadProjectConfig();
@@ -134,6 +210,7 @@ const server = createServer(async (req, res) => {
     if (req.method === "POST" && url.pathname === "/api/runs") {
       const request = validRunRequest(await readBody(req));
       registry.get(request.plugin); // 404 cedo se o plugin não existe
+      if (request.project) getProject(request.project); // idem para o projeto
       return json(res, 202, { id: startRun(request).id });
     }
 
@@ -158,14 +235,24 @@ const server = createServer(async (req, res) => {
       const rota = plugin.routes?.find((r) => r.method === req.method && r.path === rp[2]);
       if (rota) {
         const body = req.method === "GET" ? undefined : await readBody(req);
-        return json(res, 200, await rota.handle({ query: Object.fromEntries(url.searchParams), body }));
+        const pid = url.searchParams.get("project");
+        const proj = pid ? getProject(pid) : undefined;
+        return json(
+          res,
+          200,
+          await rota.handle({
+            query: Object.fromEntries(url.searchParams),
+            body,
+            ...(proj ? { project: { id: proj.id, name: proj.name, dir: proj.dir } } : {}),
+          }),
+        );
       }
     }
 
     json(res, 404, { error: "Rota não encontrada" });
   } catch (e) {
     const msg = (e as Error).message;
-    json(res, msg.startsWith("Plugin não encontrado") ? 404 : 400, { error: msg });
+    json(res, /^(Plugin|Projeto ".*") não encontrado/.test(msg) ? 404 : 400, { error: msg });
   }
 });
 

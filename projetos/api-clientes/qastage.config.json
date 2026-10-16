@@ -1,0 +1,13 @@
+{
+  "projeto": "API de Clientes (demo)",
+  "padrao": "local",
+  "ambientes": {
+    "local": { "front": "http://localhost:4280", "api": "http://localhost:4280", "escrita": true, "carga": true },
+    "qa": { "front": "https://clientes-qa.exemplo.com", "api": "https://api-clientes-qa.exemplo.com", "escrita": true },
+    "homolog": { "front": "https://clientes-homolog.exemplo.com", "api": "https://api-clientes-homolog.exemplo.com" }
+  },
+  "plugins": {
+    "api-testing": { "spec": "http://localhost:4280/openapi.json" },
+    "load-testing": { "spec": "http://localhost:4280/openapi.json" }
+  }
+}

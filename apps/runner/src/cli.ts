@@ -2,6 +2,7 @@ import type { Logger } from "@qastage/core-contract";
 import { createRegistry } from "./bootstrap";
 import { loadDotEnv } from "./env";
 import { executeRun } from "./execute";
+import { listProjects } from "./projects";
 
 const logger: Logger = {
   info: (m) => console.log(`[info] ${m}`),
@@ -9,7 +10,7 @@ const logger: Logger = {
   error: (m) => console.error(`[erro] ${m}`),
 };
 
-const OPCOES_DO_RUNNER = new Set(["env", "url", "apiUrl", "authUrl", "feature"]);
+const OPCOES_DO_RUNNER = new Set(["project", "env", "url", "apiUrl", "authUrl", "feature"]);
 
 interface ParsedArgs {
   comando: string | undefined;
@@ -18,7 +19,7 @@ interface ParsedArgs {
 }
 
 /**
- * Uso: run <plugin> [--env qa] [--url http://front] [--apiUrl http://api] [--feature caminho.feature] [--<param> valor ...]
+ * Uso: run <plugin> [--project <id>] [--env qa] [--url http://front] [--apiUrl http://api] [--feature caminho.feature] [--<param> valor ...]
  * Opções que o runner não conhece viram params do plugin (ex.: --mode scan --paths /login).
  */
 function parseArgs(argv: string[]): ParsedArgs {
@@ -39,6 +40,14 @@ async function main(): Promise<void> {
   const argv = process.argv.slice(2).filter((a) => a !== "--");
   const { comando, pluginName, opts } = parseArgs(argv);
 
+  if (comando === "projects") {
+    console.log("Projetos:");
+    for (const p of listProjects()) {
+      console.log(`  - ${p.id}  ${p.name}${p.error ? "  [config inválida]" : `  (${Object.keys(p.config!.ambientes).join(", ")})`}`);
+    }
+    return;
+  }
+
   if (!comando || comando === "list") {
     console.log("Plugins disponíveis:");
     for (const p of registry.list()) {
@@ -57,6 +66,7 @@ async function main(): Promise<void> {
     registry,
     {
       plugin: pluginName,
+      ...(opts.project ? { project: opts.project } : {}),
       // Com qastage.config.json, --env basta; --url/--apiUrl sobrescrevem as URLs do ambiente.
       env: { name: opts.env, baseUrl: opts.url, apiUrl: opts.apiUrl, authUrl: opts.authUrl },
       featurePath: opts.feature,

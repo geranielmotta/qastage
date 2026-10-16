@@ -9,5 +9,11 @@
   },
   "dependencies": {
     "@qastage/core-contract": "workspace:*"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0"
   }
 }

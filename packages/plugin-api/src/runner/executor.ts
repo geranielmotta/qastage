@@ -26,7 +26,9 @@ export class ApiExecutor implements Executor {
     const p = ctx.params ?? {};
     const timeoutMs = Number(p.timeout ?? 15000);
     // --spec é a fonte padrão do projeto; o passo "a API é descrita em" sobrescreve.
-    const spec = p.spec ? await loadSpec(String(p.spec)) : undefined;
+    const baseDir = ctx.project?.dir ?? process.cwd();
+    const fonte = p.spec ? String(p.spec) : undefined;
+    const spec = fonte ? await loadSpec(/^https?:\/\//.test(fonte) ? fonte : resolve(baseDir, fonte)) : undefined;
     // --seed reproduz exatamente os mesmos dados gerados.
     const seed = String(p.seed ?? Date.now());
 
@@ -40,6 +42,7 @@ export class ApiExecutor implements Executor {
 
       const w: ApiWorld = {
         ...(spec ? { spec } : {}),
+        baseDir,
         // Ambiente pode ter front e API em hosts diferentes.
         baseUrl: ctx.env.apiUrl ?? ctx.env.baseUrl,
         envName: ctx.env.name,

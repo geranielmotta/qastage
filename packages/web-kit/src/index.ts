@@ -1,4 +1,4 @@
-import type { RunResult } from "@qastage/core-contract";
+import type { PanelProps, RunResult } from "@qastage/core-contract";
 
 /** Estado de uma execução como o runner devolve em GET /api/runs/:id. */
 export interface RunRecord {
@@ -42,4 +42,15 @@ export async function runAndWait(apiBase: string, body: unknown, onUpdate: (r: R
     onUpdate(rec);
     if (rec.state === "done") return rec;
   }
+}
+
+export { withProject, listFeatureFiles, readFeatureFile, saveFeatureFile, type FeatureFileInfo } from "./project";
+export { FeatureFiles } from "./FeatureFiles";
+
+/**
+ * Onde executar: dentro de um projeto o runner resolve o ambiente pelo nome
+ * (qastage.config.json do projeto); sem projeto, vai o ambiente completo.
+ */
+export function runTarget(p: Pick<PanelProps, "env" | "project">): { project?: string; env: Partial<PanelProps["env"]> } {
+  return p.project ? { project: p.project.id, env: { name: p.env.name } } : { env: p.env };
 }

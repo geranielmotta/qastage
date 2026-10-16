@@ -35,7 +35,7 @@ function readParams(ctx: RunContext): UiParams {
   return {
     mode: str("mode") === "scan" ? "scan" : "run",
     paths: (str("paths") ?? "/").split(",").map((s) => s.trim()).filter(Boolean),
-    mapsDir: resolve(str("maps") ?? "qastage/maps"),
+    mapsDir: resolve(ctx.project?.dir ?? process.cwd(), str("maps") ?? "qastage/maps"),
     browser: browser as UiParams["browser"],
     headed: str("headed") === "true",
     timeoutMs: Number(str("timeout") ?? 5000),

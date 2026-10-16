@@ -210,11 +210,35 @@ pnpm run runner -- run load-testing --env qa --url http://localhost:4280 --featu
 Verificado: CLI dos 3 plugins só com `--env`, carga recusada em `qa`, escrita recusada em `homolog`,
 ambiente inexistente, config inválida, shell + painéis no navegador com e sem config.
 
+## Feito — Múltiplos projetos e dashboard
+
+- **Projetos** em `projetos/<id>/` (config + `features/ui|api|carga` + mapas) ou registrados em
+  `qastage.projects.json` (projeto no repositório do próprio sistema). Config inválida isola só aquele projeto.
+- **Runner**: `--project` na CLI (`run ... --project <id>`, `projects` lista); `RunContext.project` e
+  `PluginApiRequest.project` no contrato; caminhos relativos resolvidos na pasta do projeto, sem escapar dela;
+  histórico em `artifacts/<projeto>/<plugin>/<id>`; rotas `/api/projects` (listar com resumo, criar),
+  `/api/projects/:id` (config resolvida), `/features` e `/file` (ler/gravar `.feature`).
+- **Shell**: dashboard de projetos (ambientes, cenários por tipo, últimas execuções, "+ Novo projeto");
+  dentro do projeto: trilha com troca de projeto, ambiente lembrado por projeto, "Visão geral" com os arquivos
+  por tipo (abrem direto no painel certo).
+- **Painéis**: barra de arquivos do projeto (`FeatureFiles` no web-kit: abrir, salvar, salvar como);
+  relatórios filtrados pelo projeto; o rascunho de API detecta o endpoint de login do Swagger e usa
+  `${QA_USUARIO}`/`${QA_SENHA}` do `.env`.
+- Demos viraram dois projetos: `portal-demo` (telas) e `api-clientes` (API + carga, Swagger por URL).
+- Correção: o swagger-parser recusa URL interna (proteção SSRF `safeUrlResolver`); o QAStage já baixa o spec
+  e passa o documento pronto — ambientes de QA costumam estar em rede interna.
+
+Verificado no navegador: dashboard, criação de projeto, abrir arquivo pela visão geral, executar, salvar no
+disco, trocar de projeto, relatórios só do projeto; CLI por projeto, projeto inexistente, caminho fora do projeto.
+
 ## Próximo
 
-1. **Validar com um projeto real** da empresa (front + Swagger + Jira) — o que falta agora só aparece no uso.
-2. Matriz de navegadores na UI (`"browser"` virar lista) e captura de sessão para SSO.
-3. Deploy: runner como serviço (fila de execuções, artefatos em object storage) e remotes publicados.
+1. **`qastage init` / gerar testes**: a partir do Swagger e de um usuário de teste, gerar os `.feature` de API
+   e, com scan navegando as telas após o login, esqueletos de UI (o "Então" fica para o QA).
+   Requer `${VAR}` nos passos de tela.
+2. **Validar com um projeto real** da empresa (front + Swagger + Jira).
+3. Matriz de navegadores na UI e captura de sessão para SSO.
+4. Deploy: runner como serviço (fila, artefatos em object storage) e remotes publicados.
 
 ## Futuro (documentado, não planejado)
 

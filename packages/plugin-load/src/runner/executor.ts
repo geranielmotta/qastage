@@ -66,7 +66,9 @@ export class LoadExecutor implements Executor {
     const p = ctx.params ?? {};
     const maxVus = Number(process.env.QASTAGE_LOAD_MAX_VUS ?? 100);
     const seed = String(p.seed ?? Date.now());
-    const spec = p.spec ? await loadSpec(String(p.spec)) : undefined;
+    const baseDir = ctx.project?.dir ?? process.cwd();
+    const fonte = p.spec ? String(p.spec) : undefined;
+    const spec = fonte ? await loadSpec(/^https?:\/\//.test(fonte) ? fonte : resolve(baseDir, fonte)) : undefined;
 
     const steps: StepResult[] = [];
     const artifacts: Artifact[] = [];
@@ -78,7 +80,7 @@ export class LoadExecutor implements Executor {
       ctx.logger.info(`Cenário de carga: ${cenario.name}`);
       const pasta = join(ctx.artifactsDir, `${String(i + 1).padStart(2, "0")}-${slug(cenario.name)}`);
       mkdirSync(pasta, { recursive: true });
-      const plan: LoadPlan = { ...(spec ? { spec } : {}), mix: [], thinkTime: 1, thresholds: [] };
+      const plan: LoadPlan = { ...(spec ? { spec } : {}), baseDir, mix: [], thinkTime: 1, thresholds: [] };
       const segredos = new Set<string>();
       const nome = (s: { keyword: string; text: string }) => `${cenario.name} › ${s.keyword}${s.text}`;
 

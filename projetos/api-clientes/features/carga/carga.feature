@@ -1,10 +1,9 @@
 # language: pt
 Funcionalidade: Carga na API de clientes
 
-  # Só roda em ambiente autorizado: URL local ou QASTAGE_LOAD_ENVS no .env.
+  # Só roda em ambiente com "carga": true no qastage.config.json.
   Contexto:
-    Dado que a API é descrita em "examples/api-demo/openapi.json"
-    E que eu faço login em "POST /auth/login" com:
+    Dado que eu faço login em "POST /auth/login" com:
       | email | qa@empresa.com |
       | senha | segredo        |
 

@@ -8,6 +8,7 @@ export interface WriteReportInput {
   artifactsRoot: string;
   artifactsDir: string;
   plugin: string;
+  project?: { id: string; name: string };
   env: { name: string; baseUrl: string };
   result: RunResult;
   logs: string[];
@@ -42,6 +43,7 @@ export function writeReport(input: WriteReportInput): WrittenReport {
   const report: RunReport = {
     id: rel(input.artifactsRoot, dir),
     plugin: input.plugin,
+    ...(input.project ? { project: input.project } : {}),
     env: { name: input.env.name, baseUrl: input.env.baseUrl },
     status: result.status,
     startedAt: result.startedAt,

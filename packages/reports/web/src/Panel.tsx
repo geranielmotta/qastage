@@ -5,17 +5,17 @@ import type { RunSummary } from "../../src/types";
 const ROTULO = { passed: "passou", failed: "falhou", error: "erro", skipped: "pulado" } as const;
 
 /** Painel de histórico: toda execução, de qualquer plugin, com o relatório e os pacotes de falha. */
-export default function Panel({ apiBase }: PanelProps) {
+export default function Panel({ apiBase, project }: PanelProps) {
   const [runs, setRuns] = useState<RunSummary[] | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [filtro, setFiltro] = useState<"todas" | "falhas">("todas");
 
   const carregar = useCallback(() => {
-    fetch(`${apiBase}/api/plugins/reports/runs`)
+    fetch(`${apiBase}/api/plugins/reports/runs${project ? `?project=${encodeURIComponent(project.id)}` : ""}`)
       .then((r) => r.json() as Promise<RunSummary[]>)
       .then(setRuns)
       .catch(() => setErro("Não consegui ler o histórico no runner."));
-  }, [apiBase]);
+  }, [apiBase, project]);
   useEffect(carregar, [carregar]);
 
   const lista = (runs ?? []).filter((r) => filtro === "todas" || r.status !== "passed");
@@ -27,7 +27,7 @@ export default function Panel({ apiBase }: PanelProps) {
       <div className="cab">
         <div>
           <h1>Relatórios</h1>
-          <p className="sub">Histórico de execuções de todos os plugins.</p>
+          <p className="sub">Histórico de execuções{project ? <> do projeto <strong>{project.name}</strong></> : " de todos os projetos"}.</p>
         </div>
         <div className="acoes">
           <select value={filtro} onChange={(e) => setFiltro(e.target.value as typeof filtro)} aria-label="Filtro">
