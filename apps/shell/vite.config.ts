@@ -10,6 +10,9 @@ export default defineConfig({
     federation({
       name: "qastage_shell",
       remotes: {},
+      // Sem type federation: os tipos compartilhados vêm de @qastage/core-contract.
+      // (O gerador de tipos também escrevia .d.ts dentro de src/.)
+      dts: false,
       shared: {
         react: { singleton: true },
         "react-dom": { singleton: true },
