@@ -80,12 +80,15 @@ function negativosPara(e: EndpointResumo): string {
 }
 
 /** Painel do plugin api-testing: carrega a fonte, monta o .feature e executa. */
-export default function Panel({ apiBase, env }: PanelProps) {
+export default function Panel({ apiBase, env, defaults }: PanelProps) {
+  // Com qastage.config.json o ambiente já traz a URL da API: o runner resolve pelo nome.
+  const daConfig = !!env.apiUrl;
   const [apiUrl, setApiUrl] = useApiUrl(env);
-  const [fonte, setFonte] = useState(FONTE_PADRAO);
+  const fontePadrao = String(defaults?.spec ?? FONTE_PADRAO);
+  const [fonte, setFonte] = useState(fontePadrao);
   const [catalogo, setCatalogo] = useState<Catalogo | null>(null);
   const [erroFonte, setErroFonte] = useState<string | null>(null);
-  const [feature, setFeature] = useState(() => cabecalho(FONTE_PADRAO));
+  const [feature, setFeature] = useState(() => cabecalho(fontePadrao));
   const [rodando, setRodando] = useState(false);
   const [rec, setRec] = useState<RunRecord | null>(null);
   const [erro, setErro] = useState<string | null>(null);
@@ -108,7 +111,7 @@ export default function Panel({ apiBase, env }: PanelProps) {
     setErro(null);
     setRec(null);
     try {
-      await runAndWait(apiBase, { plugin: "api-testing", env: { ...env, baseUrl: apiUrl }, featureText: feature, params: {} }, setRec);
+      await runAndWait(apiBase, { plugin: "api-testing", env: daConfig ? { name: env.name } : { ...env, baseUrl: apiUrl }, featureText: feature, params: {} }, setRec);
     } catch (e) {
       setErro((e as Error).message);
     } finally {
@@ -122,13 +125,17 @@ export default function Panel({ apiBase, env }: PanelProps) {
       <h1>Testes de API</h1>
       <p className="sub">
         Ambiente <strong>{env.name}</strong>
-        {env.name === "homolog" && " · só leitura: POST/PUT/PATCH/DELETE são bloqueados"}
+        {env.writable === false && " · só leitura: POST/PUT/PATCH/DELETE são bloqueados"}
       </p>
 
       <div className="linha">
         <label>
           URL da API neste ambiente
-          <input value={apiUrl} onChange={(e) => setApiUrl(e.target.value)} size={30} />
+          {daConfig ? (
+            <input value={env.apiUrl} readOnly size={30} title="Definida no qastage.config.json" />
+          ) : (
+            <input value={apiUrl} onChange={(e) => setApiUrl(e.target.value)} size={30} />
+          )}
         </label>
         <label className="cresce">
           Fonte dos endpoints (link ou arquivo: OpenAPI, Swagger, Postman)

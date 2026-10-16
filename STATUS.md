@@ -194,17 +194,27 @@ pnpm run runner -- run load-testing --env qa --url http://localhost:4280 --featu
 pnpm run runner -- run load-testing --env qa --url http://localhost:4280 --feature examples/api-demo/features/carga-pico.feature
 ```
 
+## Feito — Configuração do projeto
+
+- **`qastage.config.json`** (tipos `ProjectConfig`/`EnvConfig` no contrato): ambientes com URL do front e da
+  API, `escrita` e `carga` (ambos **padrão false**), ambiente padrão e parâmetros padrão por plugin.
+- Runner lê a cada execução, valida (URL, booleanos, `padrao`) e resolve o ambiente; `ResolvedEnv` ganhou
+  `apiUrl` e `allowLoad`. `GET /api/config` entrega os ambientes resolvidos ao shell.
+- CLI: `--env` basta (ou nada, usa o `padrao`); `--url`/`--apiUrl` sobrescrevem; erros de uso saem limpos.
+- api-testing e load-testing usam a URL da API do ambiente; a carga respeita `"carga": true`
+  (`QASTAGE_LOAD_ENVS` vira só fallback).
+- Shell: nome do projeto, ambientes do arquivo (iguais para o time), selos escrita/só leitura/carga, ambiente
+  escolhido lembrado; painéis recebem `defaults` do plugin e mostram a URL da API só leitura.
+- Sem o arquivo: modo antigo intacto, com aviso no shell.
+
+Verificado: CLI dos 3 plugins só com `--env`, carga recusada em `qa`, escrita recusada em `homolog`,
+ambiente inexistente, config inválida, shell + painéis no navegador com e sem config.
+
 ## Próximo
 
-Todas as fases do roadmap (F0–F5) estão entregues. Sugestões, por ordem:
-
-1. **Config de projeto no runner** (`qastage.config.json`): ambientes com URL do front e da API, `escrita`,
-   `carga`, fonte de endpoints, mapas e matriz de navegadores. Substitui `QASTAGE_LOAD_ENVS`, a regra fixa
-   "homolog = só leitura" e os campos de URL espalhados nos painéis.
-2. **Validar com um projeto real** da empresa (front + Swagger + Jira) e ajustar o que aparecer.
-3. Matriz de navegadores na UI (mesmo cenário em Chromium/Firefox/WebKit) e captura de sessão para SSO.
-4. Deploy: runner como serviço (fila de execuções, armazenamento de artefatos em object storage) e build
-   dos remotes publicados.
+1. **Validar com um projeto real** da empresa (front + Swagger + Jira) — o que falta agora só aparece no uso.
+2. Matriz de navegadores na UI (`"browser"` virar lista) e captura de sessão para SSO.
+3. Deploy: runner como serviço (fila de execuções, artefatos em object storage) e remotes publicados.
 
 ## Futuro (documentado, não planejado)
 

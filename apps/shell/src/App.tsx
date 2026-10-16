@@ -1,11 +1,35 @@
 import type { PanelProps, PluginManifest, WebRemote } from "@qastage/core-contract";
 import { Component, useEffect, useState, type ComponentType, type ReactNode } from "react";
-import { loadEnvs, saveEnvs } from "./environments";
+import { loadEnvs, saveEnvs, type Env } from "./environments";
 import { loadPanel } from "./remotes";
 
 const API = import.meta.env.VITE_QASTAGE_API ?? "http://localhost:4000";
 
 type ComPainel = PluginManifest & { webRemote: WebRemote };
+
+/** GET /api/config: ambientes já resolvidos pelo runner a partir do qastage.config.json. */
+interface ConfigDoProjeto {
+  projeto: string;
+  padrao: string;
+  ambientes: Array<Required<Pick<Env, "name" | "baseUrl">> & Env>;
+  plugins: Record<string, Record<string, string | number | boolean>>;
+}
+
+const CHAVE_ENV = "qastage.env";
+const lerEnvEscolhido = () => {
+  try {
+    return localStorage.getItem(CHAVE_ENV);
+  } catch {
+    return null;
+  }
+};
+const salvarEnvEscolhido = (n: string) => {
+  try {
+    localStorage.setItem(CHAVE_ENV, n);
+  } catch {
+    /* sem storage */
+  }
+};
 
 function useHashRoute(): string {
   const [rota, setRota] = useState(() => location.hash.slice(1) || "/");
@@ -21,36 +45,67 @@ export function App() {
   const rota = useHashRoute();
   const [plugins, setPlugins] = useState<PluginManifest[] | null>(null);
   const [erroApi, setErroApi] = useState<string | null>(null);
-  const [envs, setEnvs] = useState(loadEnvs);
-  const [envName, setEnvName] = useState(() => envs[0]?.name ?? "local");
-  const env = envs.find((e) => e.name === envName) ?? envs[0]!;
+  // Com qastage.config.json os ambientes vêm do runner (iguais para o time todo);
+  // sem config, cai nos ambientes locais editáveis (localStorage).
+  const [config, setConfig] = useState<ConfigDoProjeto | null | undefined>(undefined);
+  const [envsLocais, setEnvsLocais] = useState(loadEnvs);
+  const envs: Env[] = config ? config.ambientes : envsLocais;
+  const [envName, setEnvName] = useState<string | null>(lerEnvEscolhido);
+  const env = envs.find((e) => e.name === envName) ?? envs.find((e) => e.name === config?.padrao) ?? envs[0]!;
 
   useEffect(() => {
     fetch(`${API}/api/plugins`)
       .then((r) => r.json() as Promise<PluginManifest[]>)
       .then(setPlugins)
       .catch(() => setErroApi(`Runner fora do ar em ${API}. Suba com: pnpm --filter @qastage/runner dev`));
+    fetch(`${API}/api/config`)
+      .then(async (r) => {
+        if (r.status === 404) return null;
+        const body = (await r.json()) as ConfigDoProjeto & { error?: string };
+        if (!r.ok) throw new Error(body.error);
+        return body;
+      })
+      .then(setConfig)
+      .catch((e: Error) => {
+        setConfig(null);
+        if (e.message) setErroApi(`Config do projeto com erro:\n${e.message}`);
+      });
   }, []);
 
   const comPainel = (plugins ?? []).filter((p): p is ComPainel => !!p.webRemote);
   const atual = comPainel.find((p) => p.webRemote.route === rota);
 
+  const escolher = (n: string) => {
+    setEnvName(n);
+    salvarEnvEscolhido(n);
+  };
   const editarBaseUrl = (baseUrl: string) => {
-    const novos = envs.map((e) => (e.name === env.name ? { ...e, baseUrl } : e));
-    setEnvs(novos);
+    const novos = envsLocais.map((e) => (e.name === env.name ? { ...e, baseUrl } : e));
+    setEnvsLocais(novos);
     saveEnvs(novos);
   };
 
   return (
     <div className="shell">
       <header className="topo">
-        <a href="#/" className="marca">QAStage</a>
+        <a href="#/" className="marca">
+          QAStage{config && <span className="projeto"> · {config.projeto}</span>}
+        </a>
         <label className="env">
           Ambiente
-          <select value={env.name} onChange={(e) => setEnvName(e.target.value)}>
+          <select value={env.name} onChange={(e) => escolher(e.target.value)}>
             {envs.map((e) => <option key={e.name}>{e.name}</option>)}
           </select>
-          <input value={env.baseUrl} onChange={(e) => editarBaseUrl(e.target.value)} aria-label="URL base do ambiente" />
+          {config ? (
+            <span className="urls" title="Definido no qastage.config.json">
+              {env.baseUrl}
+              {env.apiUrl && env.apiUrl !== env.baseUrl && <> · API {env.apiUrl}</>}
+              <span className={`selo ${env.writable ? "" : "aviso"}`}>{env.writable ? "escrita" : "só leitura"}</span>
+              {env.allowLoad && <span className="selo">carga</span>}
+            </span>
+          ) : (
+            config === null && <input value={env.baseUrl} onChange={(e) => editarBaseUrl(e.target.value)} aria-label="URL base do ambiente" />
+          )}
         </label>
       </header>
       <div className="corpo">
@@ -63,11 +118,14 @@ export function App() {
         </nav>
         <main className="conteudo">
           {erroApi && <p className="erro">{erroApi}</p>}
-          {!erroApi && !plugins && <p>Carregando plugins…</p>}
-          {plugins && !atual && <Inicio plugins={plugins} />}
-          {atual && (
+          {!erroApi && (!plugins || config === undefined) && <p>Carregando…</p>}
+          {plugins && config !== undefined && !atual && <Inicio plugins={plugins} semConfig={config === null} />}
+          {atual && config !== undefined && (
             <Limite key={atual.name} nome={atual.webRemote.title}>
-              <PainelRemoto remote={atual.webRemote} props={{ apiBase: API, env }} />
+              <PainelRemoto
+                remote={atual.webRemote}
+                props={{ apiBase: API, env, ...(config?.plugins[atual.name] ? { defaults: config.plugins[atual.name] } : {}) }}
+              />
             </Limite>
           )}
         </main>
@@ -76,9 +134,15 @@ export function App() {
   );
 }
 
-function Inicio({ plugins }: { plugins: PluginManifest[] }) {
+function Inicio({ plugins, semConfig }: { plugins: PluginManifest[]; semConfig: boolean }) {
   return (
     <>
+      {semConfig && (
+        <p className="aviso-config">
+          Sem <code>qastage.config.json</code> na raiz do projeto: os ambientes ficam só neste navegador. Crie o arquivo
+          para o time inteiro usar as mesmas URLs e regras (escrita, carga).
+        </p>
+      )}
       <h1>Plugins</h1>
       <ul className="catalogo">
         {plugins.map((p) => (

@@ -22,14 +22,17 @@ interface K6Summary {
 }
 
 /**
- * Carga só onde foi autorizada: o ambiente está em QASTAGE_LOAD_ENVS ou a URL
- * é local. (Vai para a config de projeto quando ela existir.)
+ * Carga só onde foi autorizada: "carga": true no ambiente (qastage.config.json),
+ * ambiente listado em QASTAGE_LOAD_ENVS, ou URL local.
  */
 function autorizado(ctx: RunContext): boolean {
+  if (ctx.env.allowLoad) return true;
   const lista = (process.env.QASTAGE_LOAD_ENVS ?? "").split(",").map((s) => s.trim()).filter(Boolean);
-  const host = new URL(ctx.env.baseUrl).hostname;
+  const host = new URL(apiUrl(ctx)).hostname;
   return lista.includes(ctx.env.name) || ["localhost", "127.0.0.1", "::1"].includes(host);
 }
+
+const apiUrl = (ctx: RunContext) => ctx.env.apiUrl ?? ctx.env.baseUrl;
 
 function interpolarEnv(v: string, segredos: Set<string>): string {
   return v.replace(/\$\{(\w+)\}/g, (_, n: string) => {
@@ -55,8 +58,9 @@ export class LoadExecutor implements Executor {
     if (!ctx.featurePath) throw new Error("Informe o .feature: --feature caminho/arquivo.feature");
     if (!autorizado(ctx)) {
       throw new Error(
-        `Carga não autorizada no ambiente "${ctx.env.name}" (${ctx.env.baseUrl}). ` +
-          `Teste de carga só roda em ambiente liberado: adicione-o em QASTAGE_LOAD_ENVS no .env (ex.: QASTAGE_LOAD_ENVS=homolog-carga). URLs locais são liberadas.`,
+        `Carga não autorizada no ambiente "${ctx.env.name}" (${apiUrl(ctx)}). ` +
+          `Teste de carga só roda em ambiente liberado: marque "carga": true nesse ambiente do qastage.config.json ` +
+          `(ou liste-o em QASTAGE_LOAD_ENVS no .env). URLs locais são liberadas.`,
       );
     }
     const p = ctx.params ?? {};
@@ -117,7 +121,7 @@ export class LoadExecutor implements Executor {
       }
 
       // 2) Gera o script e roda o k6.
-      const env: Record<string, string> = { QASTAGE_BASE_URL: ctx.env.baseUrl.replace(/\/+$/, ""), QASTAGE_SUMMARY: join(pasta, "summary.json") };
+      const env: Record<string, string> = { QASTAGE_BASE_URL: apiUrl(ctx).replace(/\/+$/, ""), QASTAGE_SUMMARY: join(pasta, "summary.json") };
       let loginPath: string | undefined;
       if (plan.login) {
         const corpo = Object.fromEntries(Object.entries(plan.login.body).map(([k, v]) => {
@@ -207,7 +211,7 @@ export class LoadExecutor implements Executor {
           scenario: cenario.name,
           step: reprovados.length === 1 ? reprovados[0]! : `${reprovados.length} limites reprovados`,
           error: reprovados.join("\n"),
-          url: ctx.env.baseUrl,
+          url: apiUrl(ctx),
           data: { carga: desc, mix: entries.map((e) => `${e.ref}×${e.weight}`).join(", "), espera: `${plan.thinkTime}s` },
           stepsToReproduce: cenario.steps.map((s) => `${s.keyword}${s.text}`),
           console: porEndpoint,

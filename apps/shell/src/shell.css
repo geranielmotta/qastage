@@ -24,3 +24,8 @@ input, select, textarea, button { font: inherit; color: inherit; background: var
 button { cursor: pointer; }
 a { color: var(--accent); }
 @media (max-width: 640px) { .corpo { flex-direction: column; } .menu { width: auto; flex-direction: row; border-right: 0; border-bottom: 1px solid var(--line); } }
+.projeto { font-weight: 400; color: var(--muted); font-size: 15px; }
+.urls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; color: var(--fg); font-size: 13px; }
+.selo { font-size: 11px; padding: 1px 7px; border-radius: 99px; border: 1px solid var(--line); color: var(--muted); }
+.selo.aviso { border-color: var(--fail); color: var(--fail); }
+.aviso-config { border: 1px solid var(--line); background: var(--card); padding: 10px 12px; border-radius: 8px; font-size: 14px; }

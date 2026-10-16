@@ -44,8 +44,10 @@ export interface WebRemote {
 export interface PanelProps {
   /** Base da API do runner, ex.: "http://localhost:4000". */
   apiBase: string;
-  /** Ambiente selecionado no shell. */
-  env: { name: string; baseUrl: string; authUrl?: string };
+  /** Ambiente selecionado no shell (resolvido da config do projeto, quando existe). */
+  env: { name: string; baseUrl: string; apiUrl?: string; authUrl?: string; writable?: boolean; allowLoad?: boolean };
+  /** Padrões do plugin vindos da config do projeto (ex.: pasta de mapas, fonte do Swagger). */
+  defaults?: Record<string, string | number | boolean>;
 }
 
 /** Logger simples injetado no executor; o runner decide para onde vai. */
@@ -58,10 +60,44 @@ export interface Logger {
 /** Ambiente resolvido onde o teste roda (dev/qa/homolog/local). */
 export interface ResolvedEnv {
   name: string;
+  /** URL do front (telas). */
   baseUrl: string;
+  /** URL da API, quando difere do front. Plugins de API usam `apiUrl ?? baseUrl`. */
+  apiUrl?: string;
   authUrl?: string;
   /** Se o ambiente aceita operações de escrita (criar pedido, cadastro...). */
   writable: boolean;
+  /** Se o ambiente está autorizado para teste de carga. */
+  allowLoad?: boolean;
+}
+
+/**
+ * qastage.config.json — a configuração de um projeto, versionada junto com os
+ * .feature. O runner lê e resolve; plugins e shell recebem o resultado.
+ */
+export interface ProjectConfig {
+  projeto: string;
+  /** Ambiente usado quando nenhum é informado. */
+  padrao?: string;
+  ambientes: Record<string, EnvConfig>;
+  /**
+   * Parâmetros padrão por plugin (os mesmos de --<param> na CLI), ex.:
+   * { "ui-testing": { "maps": "qastage/maps" }, "api-testing": { "spec": "..." } }.
+   * O que vier no pedido de execução sobrescreve.
+   */
+  plugins?: Record<string, Record<string, string | number | boolean>>;
+}
+
+export interface EnvConfig {
+  /** URL do front. */
+  front: string;
+  /** URL da API (padrão: a do front). */
+  api?: string;
+  auth?: string;
+  /** Aceita escrita? Padrão false: criar registro em ambiente compartilhado precisa ser explícito. */
+  escrita?: boolean;
+  /** Autorizado para teste de carga? Padrão false. */
+  carga?: boolean;
 }
 
 /** Contexto passado ao executor a cada execução. */

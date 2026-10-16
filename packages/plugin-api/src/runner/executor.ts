@@ -40,7 +40,8 @@ export class ApiExecutor implements Executor {
 
       const w: ApiWorld = {
         ...(spec ? { spec } : {}),
-        baseUrl: ctx.env.baseUrl,
+        // Ambiente pode ter front e API em hosts diferentes.
+        baseUrl: ctx.env.apiUrl ?? ctx.env.baseUrl,
         envName: ctx.env.name,
         writable: ctx.env.writable,
         headers: {},

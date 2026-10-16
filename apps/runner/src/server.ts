@@ -4,6 +4,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { extname, join, relative, resolve, sep } from "node:path";
 import type { Logger, RunResult } from "@qastage/core-contract";
 import { createRegistry } from "./bootstrap";
+import { CONFIG_FILE, loadProjectConfig, resolveEnv } from "./config";
 import { loadDotEnv } from "./env";
 import { executeRun, workspaceRoot, type RunRequest } from "./execute";
 
@@ -95,10 +96,11 @@ function startRun(request: RunRequest): RunRecord {
 function validRunRequest(body: unknown): RunRequest {
   const b = body as Partial<RunRequest>;
   if (!b || typeof b.plugin !== "string") throw new Error("Campo obrigatório: plugin");
-  if (!b.env || typeof b.env.baseUrl !== "string") throw new Error("Campo obrigatório: env.baseUrl");
+  const e = b.env ?? {};
+  const str = (v: unknown) => (typeof v === "string" && v ? v : undefined);
   return {
     plugin: b.plugin,
-    env: { name: b.env.name ?? "local", baseUrl: b.env.baseUrl, authUrl: b.env.authUrl },
+    env: { name: str(e.name), baseUrl: str(e.baseUrl), apiUrl: str(e.apiUrl), authUrl: str(e.authUrl) },
     featureText: typeof b.featureText === "string" ? b.featureText : undefined,
     params: b.params ?? {},
   };
@@ -113,6 +115,18 @@ const server = createServer(async (req, res) => {
 
   const url = new URL(req.url ?? "/", "http://localhost");
   try {
+    if (req.method === "GET" && url.pathname === "/api/config") {
+      // Ambientes já resolvidos (o shell não reimplementa a regra) + padrões por plugin.
+      const cfg = loadProjectConfig();
+      if (!cfg) return json(res, 404, { error: `Sem ${CONFIG_FILE} na raiz do projeto` });
+      return json(res, 200, {
+        projeto: cfg.projeto,
+        padrao: cfg.padrao ?? Object.keys(cfg.ambientes)[0],
+        ambientes: Object.keys(cfg.ambientes).map((n) => resolveEnv(cfg, n)),
+        plugins: cfg.plugins ?? {},
+      });
+    }
+
     if (req.method === "GET" && url.pathname === "/api/plugins") {
       return json(res, 200, registry.list().map((p) => p.manifest));
     }

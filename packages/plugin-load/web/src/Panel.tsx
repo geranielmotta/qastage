@@ -27,6 +27,8 @@ const ICONE: Record<RunResult["status"], string> = { passed: "✓", failed: "✗
 
 /** Painel do plugin load-testing: escreve a carga em Gherkin, roda o k6 no runner e mostra as métricas. */
 export default function Panel({ apiBase, env }: PanelProps) {
+  // Com qastage.config.json o ambiente já traz a URL da API e a autorização de carga.
+  const daConfig = !!env.apiUrl;
   const [apiUrl, setApiUrl] = useState(() => {
     try {
       return localStorage.getItem(`qastage.api-url.${env.name}`) ?? env.baseUrl;
@@ -44,7 +46,7 @@ export default function Panel({ apiBase, env }: PanelProps) {
     setErro(null);
     setRec(null);
     try {
-      await runAndWait(apiBase, { plugin: "load-testing", env: { ...env, baseUrl: apiUrl }, featureText: feature, params: {} }, setRec);
+      await runAndWait(apiBase, { plugin: "load-testing", env: daConfig ? { name: env.name } : { ...env, baseUrl: apiUrl }, featureText: feature, params: {} }, setRec);
     } catch (e) {
       setErro((e as Error).message);
     } finally {
@@ -58,13 +60,21 @@ export default function Panel({ apiBase, env }: PanelProps) {
       <style>{css}</style>
       <h1>Testes de carga</h1>
       <p className="sub">
-        Ambiente <strong>{env.name}</strong> · roda com k6 no runner · só em ambiente autorizado (URL local ou
-        <code> QASTAGE_LOAD_ENVS</code>)
+        Ambiente <strong>{env.name}</strong> · roda com k6 no runner ·{" "}
+        {env.allowLoad ? (
+          <strong>carga liberada neste ambiente</strong>
+        ) : (
+          <>só em ambiente autorizado (<code>"carga": true</code> no qastage.config.json, ou URL local)</>
+        )}
       </p>
       <div className="linha">
         <label>
           URL da API neste ambiente
-          <input value={apiUrl} onChange={(e) => setApiUrl(e.target.value)} size={32} />
+          {daConfig ? (
+            <input value={env.apiUrl} readOnly size={32} title="Definida no qastage.config.json" />
+          ) : (
+            <input value={apiUrl} onChange={(e) => setApiUrl(e.target.value)} size={32} />
+          )}
         </label>
         <button className="primario" onClick={executar} disabled={rodando}>{rodando ? "Executando carga…" : "Executar carga"}</button>
       </div>

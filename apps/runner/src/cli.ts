@@ -9,7 +9,7 @@ const logger: Logger = {
   error: (m) => console.error(`[erro] ${m}`),
 };
 
-const OPCOES_DO_RUNNER = new Set(["env", "url", "authUrl", "feature"]);
+const OPCOES_DO_RUNNER = new Set(["env", "url", "apiUrl", "authUrl", "feature"]);
 
 interface ParsedArgs {
   comando: string | undefined;
@@ -18,7 +18,7 @@ interface ParsedArgs {
 }
 
 /**
- * Uso: run <plugin> [--env qa] [--url http://...] [--feature caminho.feature] [--<param> valor ...]
+ * Uso: run <plugin> [--env qa] [--url http://front] [--apiUrl http://api] [--feature caminho.feature] [--<param> valor ...]
  * Opções que o runner não conhece viram params do plugin (ex.: --mode scan --paths /login).
  */
 function parseArgs(argv: string[]): ParsedArgs {
@@ -57,7 +57,8 @@ async function main(): Promise<void> {
     registry,
     {
       plugin: pluginName,
-      env: { name: opts.env ?? "local", baseUrl: opts.url ?? "http://localhost:3000", authUrl: opts.authUrl },
+      // Com qastage.config.json, --env basta; --url/--apiUrl sobrescrevem as URLs do ambiente.
+      env: { name: opts.env, baseUrl: opts.url, apiUrl: opts.apiUrl, authUrl: opts.authUrl },
       featurePath: opts.feature,
       params: Object.fromEntries(Object.entries(opts).filter(([k]) => !OPCOES_DO_RUNNER.has(k))),
     },
@@ -81,7 +82,8 @@ async function main(): Promise<void> {
   if (result.status !== "passed") process.exitCode = 1;
 }
 
-main().catch((e) => {
-  console.error(e);
+main().catch((e: Error) => {
+  // Erros de uso (config inválida, ambiente inexistente) saem como mensagem, sem stack.
+  console.error(`[erro] ${e.message}`);
   process.exitCode = 1;
 });

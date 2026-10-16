@@ -2,12 +2,14 @@ import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import type { Logger, RunContext, RunFinishedEvent, RunResult } from "@qastage/core-contract";
 import { writeReport } from "@qastage/reports";
+import { loadProjectConfig, pluginParams, resolveEnv } from "./config";
 import type { PluginRegistry } from "./registry";
 
 /** Pedido de execução, vindo da CLI ou da API HTTP. */
 export interface RunRequest {
   plugin: string;
-  env: { name: string; baseUrl: string; authUrl?: string };
+  /** Nome do ambiente (resolvido pela config do projeto) e sobrescritas opcionais de URL. */
+  env: { name?: string; baseUrl?: string; apiUrl?: string; authUrl?: string };
   /** Caminho de um .feature em disco... */
   featurePath?: string;
   /** ...ou o texto do .feature (o shell manda o que o QA escreveu). */
@@ -58,26 +60,25 @@ export async function executeRun(registry: PluginRegistry, req: RunRequest, base
     writeFileSync(featurePath, req.featureText, "utf8");
   }
 
+  const cfg = loadProjectConfig();
   const ctx: RunContext = {
-    env: {
-      ...req.env,
-      // Por padrão, homolog não é "seguro para escrita" sem confirmação.
-      writable: req.env.name !== "homolog",
-    },
+    env: resolveEnv(cfg, req.env.name, req.env),
     featurePath,
     artifactsDir,
     logger,
-    params: req.params ?? {},
+    params: pluginParams(cfg, req.plugin, req.params),
   };
 
-  logger.info(`Executando "${req.plugin}" no ambiente "${ctx.env.name}" (${ctx.env.baseUrl})`);
+  const urls = ctx.env.apiUrl && ctx.env.apiUrl !== ctx.env.baseUrl ? `front ${ctx.env.baseUrl} · api ${ctx.env.apiUrl}` : ctx.env.baseUrl;
+  const flags = [ctx.env.writable ? "escrita" : "só leitura", ...(ctx.env.allowLoad ? ["carga liberada"] : [])].join(", ");
+  logger.info(`Executando "${req.plugin}" no ambiente "${ctx.env.name}" (${urls}; ${flags})${cfg ? ` — projeto ${cfg.projeto}` : ""}`);
   const result = await plugin.createExecutor().run(ctx);
 
   // Relatório para toda execução, de qualquer plugin. Falhar aqui nunca derruba o resultado.
   let reportHtml: string | undefined;
   let dirs: string[] = [];
   try {
-    const w = writeReport({ artifactsRoot, artifactsDir, plugin: req.plugin, env: req.env, result, logs });
+    const w = writeReport({ artifactsRoot, artifactsDir, plugin: req.plugin, env: { name: ctx.env.name, baseUrl: ctx.env.apiUrl ?? ctx.env.baseUrl }, result, logs });
     reportHtml = w.htmlPath;
     dirs = w.report.failures.map((f) => join(artifactsDir, f.dir));
   } catch (e) {
@@ -86,7 +87,7 @@ export async function executeRun(registry: PluginRegistry, req: RunRequest, base
 
   const event: RunFinishedEvent = {
     plugin: req.plugin,
-    env: { name: req.env.name, baseUrl: req.env.baseUrl },
+    env: { name: ctx.env.name, baseUrl: ctx.env.apiUrl ?? ctx.env.baseUrl },
     artifactsDir,
     result,
     failures: (result.failures ?? []).map((f, i) => (dirs[i] ? { ...f, packageDir: dirs[i] } : { ...f })),

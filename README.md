@@ -18,6 +18,9 @@ pnpm run runner -- run example --env qa --url https://qa.exemplo.com
 pnpm build                      # typecheck de todos os pacotes (via Turborepo)
 ```
 
+As demos já têm um [`qastage.config.json`](qastage.config.json) (ambiente `local`): com ele, `--env local`
+substitui as URLs nos comandos abaixo.
+
 Testes de tela (F1), contra o site de demonstração:
 
 ```bash
@@ -145,6 +148,40 @@ Cada módulo (exceto o core) é um plugin com as duas metades descritas acima.
 | data | Fixtures + geradores BR válidos; preenchimento automático por nome de campo + override. |
 | reports & artifacts | Prints de sucesso/falha, relatório navegável, armazenamento de artefatos. |
 | integrations | Jira (card na falha) e, no futuro, Slack e outros. |
+
+## Configuração do projeto (`qastage.config.json`)
+
+Cada projeto testado tem um `qastage.config.json` na raiz, versionado junto com os `.feature`. Ele substitui
+URLs digitadas em cada painel e regras fixas no código: o QA escolhe só o ambiente.
+
+```json
+{
+  "projeto": "Portal Clientes",
+  "padrao": "qa",
+  "ambientes": {
+    "qa":      { "front": "https://qa.portal.com",      "api": "https://api-qa.portal.com",  "escrita": true },
+    "homolog": { "front": "https://homolog.portal.com", "api": "https://api-hml.portal.com", "escrita": false, "carga": true }
+  },
+  "plugins": {
+    "ui-testing":   { "maps": "qastage/maps", "browser": "chromium" },
+    "api-testing":  { "spec": "https://api-qa.portal.com/openapi.json" },
+    "load-testing": { "spec": "https://api-qa.portal.com/openapi.json" }
+  }
+}
+```
+
+| Campo | Significado |
+| --- | --- |
+| `ambientes.<nome>.front` / `api` | URL das telas e da API (a `api` cai na `front` se omitida) |
+| `escrita` | Aceita POST/PUT/PATCH/DELETE. **Padrão `false`**: criar registro em ambiente compartilhado é explícito |
+| `carga` | Autorizado para teste de carga. **Padrão `false`** |
+| `plugins.<plugin>` | Parâmetros padrão do plugin (os mesmos de `--<param>` na CLI); o pedido de execução sobrescreve |
+
+- O runner lê o arquivo a cada execução (editar vale na hora) e valida com mensagens claras.
+- CLI: `--env qa` basta; `--url` e `--apiUrl` sobrescrevem as URLs pontualmente.
+- Shell: lista os ambientes do arquivo (iguais para o time todo) e mostra "escrita"/"só leitura"/"carga".
+- Segredos **não** vão aqui: ficam no `.env` (ver `.env.example`).
+- Sem o arquivo, tudo continua funcionando no modo antigo (URL pela CLI/painel, homolog só leitura).
 
 ## Adapters por projeto
 

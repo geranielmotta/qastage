@@ -37,9 +37,9 @@ const ESTRATEGIA: Record<Resolucao["estrategia"], string> = {
 };
 
 /** Painel do plugin ui-testing: escreve/roda .feature e escaneia telas. */
-export default function Panel({ apiBase, env }: PanelProps) {
+export default function Panel({ apiBase, env, defaults }: PanelProps) {
   const [aba, setAba] = useState<"executar" | "scan">("executar");
-  const [maps, setMaps] = useState("examples/ui-demo/qastage/maps");
+  const [maps, setMaps] = useState(String(defaults?.maps ?? "qastage/maps"));
   const [browser, setBrowser] = useState("chromium");
 
   return (
