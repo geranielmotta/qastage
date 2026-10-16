@@ -14,6 +14,7 @@
     "@qastage/plugin-ui": "workspace:*",
     "@qastage/reports": "workspace:*",
     "@qastage/integrations": "workspace:*",
-    "@qastage/plugin-api": "workspace:*"
+    "@qastage/plugin-api": "workspace:*",
+    "@qastage/plugin-load": "workspace:*"
   }
 }

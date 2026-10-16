@@ -18,6 +18,8 @@ export interface RunReport {
   scenarios: ScenarioReport[];
   failures: FailurePackage[];
   artifacts: Artifact[];
+  /** Métricas do executor (ex.: p95, vazão, taxa de erro de um teste de carga). */
+  metrics?: Record<string, number>;
   error?: string;
   /** Log do runner durante a execução. */
   logs: string[];

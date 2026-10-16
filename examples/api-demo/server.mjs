@@ -3,6 +3,8 @@
 // Spec em /openapi.json. Tem DOIS BUGS de propósito, para os testes acharem:
 //   1. POST /clientes não valida o campo obrigatório "cep" (aceita sem ele);
 //   2. GET /clientes/{id} devolve "telefone" como número (o contrato diz string).
+// E uma degradação realista para o teste de carga: GET /clientes fica 1 ms mais
+// lento a cada cliente cadastrado (busca sem índice), até 1 s.
 import { createServer } from "node:http";
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
@@ -69,6 +71,7 @@ createServer(async (req, res) => {
   if (req.headers.authorization !== `Bearer ${TOKEN}`) return json(res, 401, { mensagem: "Token ausente ou inválido" });
 
   if (p === "/clientes" && req.method === "GET") {
+    await new Promise((ok) => setTimeout(ok, Math.min(clientes.size, 1000)));
     const filtro = url.searchParams.get("nome")?.toLowerCase();
     return json(res, 200, [...clientes.values()].filter((c) => !filtro || c.nome.toLowerCase().includes(filtro)));
   }

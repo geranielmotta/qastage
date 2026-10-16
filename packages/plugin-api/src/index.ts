@@ -4,6 +4,7 @@ import { apiRoutes } from "./runner/routes";
 
 export { apiSteps } from "./runner/steps";
 export { loadSpec, findEndpoint } from "./runner/spec/load";
+export { generate, coerce, schemaAt, setPath } from "./runner/body";
 export type { ApiSpec, Endpoint } from "./runner/spec/model";
 
 /**

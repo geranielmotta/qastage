@@ -2,7 +2,7 @@
 
 > Plataforma de testes de QA: o QA escreve arquivos `.feature` e testa telas e APIs a partir deles. Extensível por plugins.
 
-**Status:** F0–F4 rodando — `ui-testing`, `api-testing`, `reports` (relatório + pacote de falha) e `integrations` (Jira com dedupe), cada um com painel no shell. Detalhes no [STATUS](STATUS.md).
+**Status:** roadmap F0–F5 entregue — `ui-testing`, `api-testing`, `load-testing` (k6), `reports` e `integrations` (Jira), cada um com painel no shell. Detalhes no [STATUS](STATUS.md).
 
 ---
 
@@ -45,6 +45,14 @@ pnpm run api-demo                      # http://localhost:4280 (spec em /openapi
 pnpm run runner -- run api-testing --env qa --url http://localhost:4280 --feature examples/api-demo/features/clientes.feature
 pnpm run runner -- run api-testing --env qa --url http://localhost:4280 --feature examples/api-demo/features/falhas.feature
 pnpm --filter @qastage/plugin-api dev  # painel "APIs" :5176
+```
+
+Teste de carga (F5), com k6 instalado (`brew install k6`). Só roda em URL local ou em ambiente listado em
+`QASTAGE_LOAD_ENVS`:
+
+```bash
+pnpm run runner -- run load-testing --env qa --url http://localhost:4280 --feature examples/api-demo/features/carga.feature
+pnpm --filter @qastage/plugin-load dev  # painel "Carga" :5177
 ```
 
 Jira (opcional): copie [.env.example](.env.example) para `.env` e preencha. Para testar sem Jira real,

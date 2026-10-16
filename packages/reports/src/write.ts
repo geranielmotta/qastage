@@ -51,6 +51,7 @@ export function writeReport(input: WriteReportInput): WrittenReport {
     scenarios: groupScenarios(steps),
     failures,
     artifacts: relArtifacts(dir, result.artifacts),
+    ...(result.metrics && Object.keys(result.metrics).length ? { metrics: result.metrics } : {}),
     logs: input.logs,
     ...(result.error ? { error: result.error } : {}),
   };

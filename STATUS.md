@@ -164,13 +164,47 @@ pnpm run runner -- run api-testing --env qa --url http://localhost:4280 --featur
 pnpm run runner -- run api-testing --env qa --url http://localhost:4280 --feature examples/api-demo/features/falhas.feature
 ```
 
+## Feito — F5 (load-testing)
+
+- **`@qastage/plugin-load`** (`load-testing`): o `.feature` descreve carga, mix e limites; o plugin **gera o
+  script k6** (endpoints do spec + corpos do schema com valores do módulo de dados, 50 corpos por endpoint),
+  roda o k6 e devolve as métricas.
+  - Carga constante (`5 usuários virtuais por "1m"`) ou rampa (`a carga sobe até 20 usuários em "30s" e se
+    mantém por "2m"`); tempo de espera entre requisições (padrão 1 s: carga realista, não martelada).
+  - Mix ponderado: tabela `| endpoint | peso |`. Login no `setup()` do k6.
+  - Limites: p95/p99 geral ou por endpoint, taxa de erro geral ou por endpoint, vazão mínima. Cada limite
+    vira um passo com o valor medido; reprovado → pacote de falha (e card no Jira, se configurado).
+  - Métricas no resultado e no **relatório** (nova seção "Métricas", genérica para qualquer plugin).
+- **Travas de segurança:**
+  - **Só em ambiente autorizado**: URL local ou ambiente listado em `QASTAGE_LOAD_ENVS` — senão recusa.
+  - Teto de usuários virtuais (`QASTAGE_LOAD_MAX_VUS`, padrão 100).
+  - Ambiente só-leitura (homolog) recusa endpoints de escrita no mix.
+  - Segredos fora do script (vão por `-e` do k6) e fora do `summary.json` (`setup_data` removido + máscara).
+- **Painel "Carga"** (remote `qastage_load` :5177) com cartões de métricas e link para o relatório.
+- Demo: a API de demo ficou 1 ms mais lenta na listagem por cliente cadastrado (degradação realista);
+  `carga.feature` passa e `carga-pico.feature` reprova o p95 da listagem (medido ~930 ms vs. limite 100 ms).
+  **Reinicie a demo entre execuções**: os cadastros ficam em memória e deixam a listagem lenta.
+
+Verificado: carga constante e rampa, limite reprovado, não autorizado, homolog só-leitura, teto de VUs,
+k6 ausente, artefatos sem segredos, painel e relatório no navegador.
+
+```bash
+pnpm run api-demo
+pnpm run runner -- run load-testing --env qa --url http://localhost:4280 --feature examples/api-demo/features/carga.feature
+pnpm run runner -- run load-testing --env qa --url http://localhost:4280 --feature examples/api-demo/features/carga-pico.feature
+```
+
 ## Próximo
 
-- **F5 — load-testing (k6):** script gerado dos endpoints + dados, roda o k6, métricas no reports;
-  só em ambiente autorizado, com thresholds.
-- **Config de projeto no runner** (pendência que já incomoda): ambientes com `baseUrl` (front) e `apiUrl`,
-  `writable`, fonte de endpoints e pasta de mapas — hoje estão espalhados entre localStorage e campos dos painéis.
-- Validar a integração com o Jira real; comentar "voltou a passar" no card.
+Todas as fases do roadmap (F0–F5) estão entregues. Sugestões, por ordem:
+
+1. **Config de projeto no runner** (`qastage.config.json`): ambientes com URL do front e da API, `escrita`,
+   `carga`, fonte de endpoints, mapas e matriz de navegadores. Substitui `QASTAGE_LOAD_ENVS`, a regra fixa
+   "homolog = só leitura" e os campos de URL espalhados nos painéis.
+2. **Validar com um projeto real** da empresa (front + Swagger + Jira) e ajustar o que aparecer.
+3. Matriz de navegadores na UI (mesmo cenário em Chromium/Firefox/WebKit) e captura de sessão para SSO.
+4. Deploy: runner como serviço (fila de execuções, armazenamento de artefatos em object storage) e build
+   dos remotes publicados.
 
 ## Futuro (documentado, não planejado)
 

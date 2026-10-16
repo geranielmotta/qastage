@@ -135,6 +135,13 @@ summary small { font-weight: 400; margin-left: 6px; }
     <li><span class="passed">${r.counts.passed} passaram</span> · <span class="failed">${r.counts.failed + r.counts.error} falharam</span> · <span class="skipped">${r.counts.skipped} pulados</span></li>
   </ul>
   ${r.error && !r.failures.length ? `<pre class="erro">${esc(r.error)}</pre>` : ""}
+  ${
+    r.metrics
+      ? `<h2>Métricas</h2><div class="cenario"><table><tbody>${Object.entries(r.metrics)
+          .map(([k, v]) => `<tr><th>${esc(k)}</th><td><code>${esc(v.toLocaleString("pt-BR"))}</code></td></tr>`)
+          .join("")}</tbody></table></div>`
+      : ""
+  }
   ${r.failures.length ? `<h2>Falhas (${r.failures.length})</h2>${falhas}` : ""}
   ${cenarios ? `<h2>Cenários</h2>${cenarios}` : ""}
   ${outros.length ? `<h2>Outros arquivos</h2><p>${outros.map(link).join(" · ")}</p>` : ""}

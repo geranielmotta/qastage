@@ -1,0 +1,27 @@
+{
+  "name": "@qastage/plugin-load",
+  "version": "0.0.0",
+  "description": "Plugin load-testing: gera o script k6 a partir dos endpoints e dados, roda o k6 e devolve as métricas.",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "build": "tsc --noEmit && tsc --noEmit -p web && vite build --config web/vite.config.ts",
+    "dev": "vite --config web/vite.config.ts"
+  },
+  "dependencies": {
+    "@qastage/core-contract": "workspace:*",
+    "@qastage/data": "workspace:*",
+    "@qastage/feature": "workspace:*",
+    "@qastage/plugin-api": "workspace:*",
+    "@qastage/web-kit": "workspace:*",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@module-federation/vite": "^1.23.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "vite": "^8.3.4"
+  }
+}
