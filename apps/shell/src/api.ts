@@ -45,7 +45,9 @@ export interface Projeto {
 export type ComPainel = PluginManifest & { webRemote: WebRemote };
 
 export async function getJson<T>(path: string, init?: RequestInit): Promise<T> {
-  const r = await fetch(API + path, init);
+  const r = await fetch(API + path, { credentials: "include", ...init });
+  // Sessão expirou ou foi encerrada pelo admin: o App volta para a tela de entrada.
+  if (r.status === 401 && !path.startsWith("/api/auth/")) dispatchEvent(new Event("qastage:sessao-expirada"));
   const body = (await r.json().catch(() => ({}))) as T & { error?: string };
   if (!r.ok) throw new Error(body.error ?? `Runner respondeu ${r.status}`);
   return body;
@@ -80,3 +82,18 @@ export const PASTA_PLUGIN: Record<string, string> = {
   "api-testing": "features/api",
   "load-testing": "features/carga",
 };
+
+export interface Usuario {
+  id: string;
+  nome: string;
+  email: string;
+  papel: "admin" | "qa";
+  projetos: string[];
+  ativo: boolean;
+  criadoEm: string;
+}
+
+/** POST/PATCH com JSON (o runner só aceita escrita em JSON). */
+export function enviar<T>(path: string, method: "POST" | "PATCH" | "PUT", body: unknown = {}): Promise<T> {
+  return getJson<T>(path, { method, headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+}

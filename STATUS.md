@@ -235,14 +235,29 @@ ambiente inexistente, config inválida, shell + painéis no navegador com e sem 
 Verificado no navegador: dashboard, criação de projeto, abrir arquivo pela visão geral, executar, salvar no
 disco, trocar de projeto, relatórios só do projeto; CLI por projeto, projeto inexistente, caminho fora do projeto.
 
+## Feito — Usuários, papéis e permissões por projeto
+
+- **Contas** (admin / qa) em `qastage-data/usuarios.json` (fora do git), senha com scrypt + sal, gravação atômica.
+- **Sessão** em cookie HttpOnly (12 h, em memória: reiniciar o runner desloga todos); CORS só para as origens do
+  shell/painéis com credenciais; escrita só com `content-type: application/json`; bloqueio após 5 erros de login.
+- **Autorização no runner**: QA só lista/abre/executa/lê projetos atribuídos (inclusive `/artifacts`, `/api/files`,
+  rotas de plugin — que exigem `?project=` para QA, exceto o vocabulário de passos); criar projeto, administrar
+  usuários e executar fora de projeto são de admin. Nunca fica sem admin ativo.
+- **Shell**: tela de entrada / primeiro acesso, menu do usuário (trocar senha, sair, Administração), página de
+  administração com a matriz pessoa × projeto, senha temporária mostrada uma vez; sessão expirada volta ao login.
+- Relatório mostra "Executado por". CLI: `usuarios listar | admin <email> <nome> | senha <email>`.
+
+Verificado: matriz de 18 permissões pela API, fluxo completo no navegador (primeiro acesso → admin cria QA →
+QA vê só o dele, executa, relatório abre → URL direta de outro projeto negada → troca de senha → admin libera
+outro projeto → admin desativa e a QA cai para o login), testes unitários de usuários e acesso (5/5).
+
 ## Próximo
 
-1. **`qastage init` / gerar testes**: a partir do Swagger e de um usuário de teste, gerar os `.feature` de API
-   e, com scan navegando as telas após o login, esqueletos de UI (o "Então" fica para o QA).
-   Requer `${VAR}` nos passos de tela.
-2. **Validar com um projeto real** da empresa (front + Swagger + Jira).
-3. Matriz de navegadores na UI e captura de sessão para SSO.
-4. Deploy: runner como serviço (fila, artefatos em object storage) e remotes publicados.
+1. **Gerador de testes** a partir do Swagger e de um usuário de teste (API completa; telas como esqueleto).
+2. **Validar com um projeto real** da empresa.
+3. Sessões persistentes e login corporativo (SSO/LDAP) quando o QAStage virar serviço compartilhado.
+4. Matriz de navegadores e captura de sessão SSO dos sistemas testados.
+5. Deploy: runner como serviço (fila, artefatos em object storage), HTTPS (cookie `Secure`) e remotes publicados.
 
 ## Futuro (documentado, não planejado)
 

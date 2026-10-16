@@ -1,6 +1,8 @@
 import type { PanelProps, PluginManifest, WebRemote } from "@qastage/core-contract";
 import { Component, useEffect, useState, type ComponentType, type ReactNode } from "react";
-import { API, envEscolhido, getJson, type ComPainel, type Projeto, type ProjetoResumo } from "./api";
+import { Admin } from "./Admin";
+import { API, enviar, envEscolhido, getJson, type ComPainel, type Projeto, type ProjetoResumo, type Usuario } from "./api";
+import { Entrar, TrocarSenha } from "./Auth";
 import { Dashboard } from "./Dashboard";
 import { ProjectHome } from "./ProjectHome";
 import { loadPanel } from "./remotes";
@@ -25,37 +27,97 @@ function useHashRoute() {
   return r;
 }
 
+type Sessao = { usuario: Usuario } | { usuario: null; setup: boolean } | undefined;
+
 export function App() {
+  const [sessao, setSessao] = useState<Sessao>(undefined);
+  const [erroApi, setErroApi] = useState<string | null>(null);
+
+  const verificar = () =>
+    fetch(`${API}/api/auth/me`, { credentials: "include" })
+      .then(async (r) => {
+        const b = (await r.json()) as { usuario?: Usuario; setup?: boolean };
+        setSessao(b.usuario ? { usuario: b.usuario } : { usuario: null, setup: !!b.setup });
+      })
+      .catch(() => setErroApi(`Runner fora do ar em ${API}. Suba com: pnpm --filter @qastage/runner dev`));
+
+  useEffect(() => {
+    void verificar();
+    const expirou = () => setSessao({ usuario: null, setup: false });
+    addEventListener("qastage:sessao-expirada", expirou);
+    return () => removeEventListener("qastage:sessao-expirada", expirou);
+  }, []);
+
+  if (erroApi) return <p className="erro conteudo">{erroApi}</p>;
+  if (!sessao) return <p className="conteudo">Carregando…</p>;
+  if (!sessao.usuario) return <Entrar setup={sessao.setup} onEntrou={(u) => setSessao({ usuario: u })} />;
+  return <Logado usuario={sessao.usuario} onSair={() => setSessao({ usuario: null, setup: false })} />;
+}
+
+/** Nome, troca de senha, administração e saída — no canto do cabeçalho. */
+function MenuUsuario({ usuario, onSair }: { usuario: Usuario; onSair: () => void }) {
+  const [aberto, setAberto] = useState(false);
+  const [trocando, setTrocando] = useState(false);
+  const sair = async () => {
+    await enviar("/api/auth/logout", "POST").catch(() => undefined);
+    onSair();
+  };
+  return (
+    <div className="usuario">
+      <button className="usuario-botao" onClick={() => setAberto((v) => !v)} aria-expanded={aberto}>
+        {usuario.nome} <span className="papel">{usuario.papel === "admin" ? "admin" : "QA"}</span> ▾
+      </button>
+      {aberto && (
+        <div className="usuario-menu" onClick={() => setAberto(false)}>
+          {usuario.papel === "admin" && <a href="#/admin">Administração</a>}
+          <button onClick={() => setTrocando(true)}>Trocar senha</button>
+          <button onClick={() => void sair()}>Sair</button>
+        </div>
+      )}
+      {trocando && <TrocarSenha onFechar={() => setTrocando(false)} />}
+    </div>
+  );
+}
+
+function Logado({ usuario, onSair }: { usuario: Usuario; onSair: () => void }) {
   const { projeto: projetoId, rota, arquivo } = useHashRoute();
   const [plugins, setPlugins] = useState<PluginManifest[] | null>(null);
   const [erroApi, setErroApi] = useState<string | null>(null);
+  const menu = <MenuUsuario usuario={usuario} onSair={onSair} />;
 
   useEffect(() => {
     getJson<PluginManifest[]>("/api/plugins")
       .then(setPlugins)
-      .catch(() => setErroApi(`Runner fora do ar em ${API}. Suba com: pnpm --filter @qastage/runner dev`));
+      .catch((e: Error) => setErroApi(e.message));
   }, []);
+
+  const topoSimples = (
+    <header className="topo">
+      <a href="#/" className="marca">QAStage</a>
+      {menu}
+    </header>
+  );
 
   return (
     <div className="shell">
       {erroApi ? (
         <>
-          <header className="topo">
-            <a href="#/" className="marca">QAStage</a>
-          </header>
+          {topoSimples}
           <p className="erro conteudo">{erroApi}</p>
         </>
       ) : !plugins ? (
         <p className="conteudo">Carregando…</p>
       ) : projetoId ? (
-        <AreaDoProjeto key={projetoId} id={projetoId} rota={rota} arquivo={arquivo} plugins={plugins} />
+        <AreaDoProjeto key={projetoId} id={projetoId} rota={rota} arquivo={arquivo} plugins={plugins} menu={menu} />
       ) : (
         <>
-          <header className="topo">
-            <a href="#/" className="marca">QAStage</a>
-          </header>
+          {topoSimples}
           <main className="conteudo">
-            <Dashboard />
+            {rota === "/admin" ? (
+              usuario.papel === "admin" ? <Admin eu={usuario} /> : <p className="erro">Só administradores.</p>
+            ) : (
+              <Dashboard admin={usuario.papel === "admin"} />
+            )}
           </main>
         </>
       )}
@@ -64,7 +126,7 @@ export function App() {
 }
 
 /** Dentro de um projeto: cabeçalho com troca de projeto/ambiente, menu dos painéis, conteúdo. */
-function AreaDoProjeto({ id, rota, arquivo, plugins }: { id: string; rota: string; arquivo?: string; plugins: PluginManifest[] }) {
+function AreaDoProjeto({ id, rota, arquivo, plugins, menu }: { id: string; rota: string; arquivo?: string; plugins: PluginManifest[]; menu: ReactNode }) {
   const [projeto, setProjeto] = useState<Projeto | null>(null);
   const [todos, setTodos] = useState<ProjetoResumo[]>([]);
   const [erro, setErro] = useState<string | null>(null);
@@ -110,6 +172,7 @@ function AreaDoProjeto({ id, rota, arquivo, plugins }: { id: string; rota: strin
             </span>
           </label>
         )}
+        {menu}
       </header>
       <div className="corpo">
         <nav className="menu">

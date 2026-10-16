@@ -14,9 +14,9 @@ export const fileUrl = (apiBase: string, path: string) => `${apiBase}/api/files?
 
 export const pluginApi = (apiBase: string, plugin: string, path: string) => `${apiBase}/api/plugins/${plugin}${path}`;
 
-/** GET JSON com a mensagem de erro do runner quando falha. */
+/** GET JSON com a mensagem de erro do runner quando falha. A sessão vai no cookie (credentials). */
 export async function getJson<T>(url: string): Promise<T> {
-  const r = await fetch(url);
+  const r = await fetch(url, { credentials: "include" });
   const body = (await r.json().catch(() => ({}))) as T & { error?: string };
   if (!r.ok) throw new Error(body.error ?? `Runner respondeu ${r.status}`);
   return body;
@@ -29,6 +29,7 @@ export async function fetchFileJson<T>(apiBase: string, path: string): Promise<T
 /** Dispara a execução no runner e acompanha por polling até terminar. */
 export async function runAndWait(apiBase: string, body: unknown, onUpdate: (r: RunRecord) => void): Promise<RunRecord> {
   const r = await fetch(`${apiBase}/api/runs`, {
+    credentials: "include",
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),

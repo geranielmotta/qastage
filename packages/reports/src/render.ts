@@ -130,6 +130,7 @@ summary small { font-weight: 400; margin-left: 6px; }
   </div>
   <ul class="meta">
     ${r.project ? `<li>Projeto <strong>${esc(r.project.name)}</strong></li>` : ""}
+    ${r.requestedBy ? `<li>Executado por <strong>${esc(r.requestedBy)}</strong></li>` : ""}
     <li>Ambiente <strong>${esc(r.env.name)}</strong> · ${esc(r.env.baseUrl)}</li>
     <li>Início <strong>${esc(quando(r.startedAt))}</strong></li>
     <li>Duração <strong>${ms(r.durationMs)}</strong></li>

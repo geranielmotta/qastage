@@ -18,6 +18,8 @@ export interface RunRequest {
   /** ...ou o texto do .feature (o shell manda o que o QA escreveu). */
   featureText?: string;
   params?: Record<string, unknown>;
+  /** Quem pediu a execução (nome do usuário logado), para o relatório. */
+  requestedBy?: string;
 }
 
 export interface RunOutcome {
@@ -86,7 +88,7 @@ export async function executeRun(registry: PluginRegistry, req: RunRequest, base
   let reportHtml: string | undefined;
   let dirs: string[] = [];
   try {
-    const w = writeReport({ artifactsRoot, artifactsDir, plugin: req.plugin, ...(project ? { project: { id: project.id, name: project.name } } : {}), env: { name: ctx.env.name, baseUrl: ctx.env.apiUrl ?? ctx.env.baseUrl }, result, logs });
+    const w = writeReport({ artifactsRoot, artifactsDir, plugin: req.plugin, ...(project ? { project: { id: project.id, name: project.name } } : {}), ...(req.requestedBy ? { requestedBy: req.requestedBy } : {}), env: { name: ctx.env.name, baseUrl: ctx.env.apiUrl ?? ctx.env.baseUrl }, result, logs });
     reportHtml = w.htmlPath;
     dirs = w.report.failures.map((f) => join(artifactsDir, f.dir));
   } catch (e) {

@@ -12,3 +12,6 @@ artifacts/
 
 # Segredos locais (Jira etc.) — use .env.example como modelo
 .env
+
+# Usuários e dados locais do QAStage (hash de senha) — nunca no git
+qastage-data/

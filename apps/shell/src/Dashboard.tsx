@@ -5,7 +5,7 @@ const quando = (iso: string) => new Date(iso).toLocaleString("pt-BR", { day: "2-
 const STATUS = { passed: "passou", failed: "falhou", error: "erro", skipped: "pulado" } as const;
 
 /** Tela inicial: todos os projetos do QA, com o estado de cada um, e a criação de um novo. */
-export function Dashboard() {
+export function Dashboard({ admin }: { admin: boolean }) {
   const [projetos, setProjetos] = useState<ProjetoResumo[] | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [criando, setCriando] = useState(false);
@@ -23,12 +23,18 @@ export function Dashboard() {
           <h1>Projetos</h1>
           <p className="sub">Escolha um projeto para continuar os testes.</p>
         </div>
-        <button className="primario" onClick={() => setCriando((v) => !v)}>{criando ? "Cancelar" : "+ Novo projeto"}</button>
+        {admin && <button className="primario" onClick={() => setCriando((v) => !v)}>{criando ? "Cancelar" : "+ Novo projeto"}</button>}
       </div>
       {criando && <NovoProjeto />}
       {erro && <p className="erro">{erro}</p>}
       {projetos && projetos.length === 0 && !criando && (
-        <p className="vazio">Nenhum projeto ainda. Crie o primeiro com <strong>+ Novo projeto</strong>.</p>
+        <p className="vazio">
+          {admin ? (
+            <>Nenhum projeto ainda. Crie o primeiro com <strong>+ Novo projeto</strong>.</>
+          ) : (
+            <>Nenhum projeto atribuído a você ainda. Peça ao administrador para liberar os projetos que vai testar.</>
+          )}
+        </p>
       )}
       <div className="cards">
         {projetos?.map((p) => (p.error ? <CardComErro key={p.id} p={p} /> : <Card key={p.id} p={p} />))}

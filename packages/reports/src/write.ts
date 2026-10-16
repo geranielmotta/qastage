@@ -9,6 +9,8 @@ export interface WriteReportInput {
   artifactsDir: string;
   plugin: string;
   project?: { id: string; name: string };
+  /** Quem pediu a execução. */
+  requestedBy?: string;
   env: { name: string; baseUrl: string };
   result: RunResult;
   logs: string[];
@@ -44,6 +46,7 @@ export function writeReport(input: WriteReportInput): WrittenReport {
     id: rel(input.artifactsRoot, dir),
     plugin: input.plugin,
     ...(input.project ? { project: input.project } : {}),
+    ...(input.requestedBy ? { requestedBy: input.requestedBy } : {}),
     env: { name: input.env.name, baseUrl: input.env.baseUrl },
     status: result.status,
     startedAt: result.startedAt,

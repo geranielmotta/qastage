@@ -1,6 +1,7 @@
 import type { Logger } from "@qastage/core-contract";
 import { createRegistry } from "./bootstrap";
 import { loadDotEnv } from "./env";
+import { alterarUsuario, buscarPorEmail, criarUsuario, listarUsuarios, senhaTemporaria } from "./auth/users";
 import { executeRun } from "./execute";
 import { listProjects } from "./projects";
 
@@ -39,6 +40,32 @@ async function main(): Promise<void> {
   // Alguns gerenciadores (pnpm) repassam um "--" literal; ignoramos esses tokens.
   const argv = process.argv.slice(2).filter((a) => a !== "--");
   const { comando, pluginName, opts } = parseArgs(argv);
+
+  if (comando === "usuarios") {
+    // Operação local (quem tem acesso à máquina do runner): não passa pela API.
+    const [, sub, email, ...nome] = argv;
+    if (sub === "admin" && email && nome.length) {
+      const senha = senhaTemporaria();
+      const u = criarUsuario({ nome: nome.join(" "), email, papel: "admin", senha });
+      console.log(`Administrador ${u.nome} <${u.email}> criado.\nSenha temporária: ${senha}\n(troque no primeiro acesso: menu do usuário → Trocar senha)`);
+      return;
+    }
+    if (sub === "senha" && email) {
+      const u = buscarPorEmail(email);
+      if (!u) throw new Error(`Usuário ${email} não existe.`);
+      const senha = senhaTemporaria();
+      alterarUsuario(u.id, { senha, ativo: true });
+      console.log(`Nova senha temporária de ${u.email}: ${senha}`);
+      return;
+    }
+    if (sub === "listar" || !sub) {
+      const us = listarUsuarios();
+      if (!us.length) console.log("Nenhum usuário. Crie o admin: usuarios admin <email> <nome>");
+      for (const u of us) console.log(`  - ${u.email}  ${u.nome}  [${u.papel}${u.ativo ? "" : ", inativo"}]  projetos: ${u.papel === "admin" ? "todos" : u.projetos.join(", ") || "nenhum"}`);
+      return;
+    }
+    throw new Error("Uso: usuarios listar | usuarios admin <email> <nome> | usuarios senha <email>");
+  }
 
   if (comando === "projects") {
     console.log("Projetos:");

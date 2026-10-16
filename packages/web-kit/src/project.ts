@@ -24,6 +24,7 @@ export async function readFeatureFile(apiBase: string, projectId: string, path: 
 
 export async function saveFeatureFile(apiBase: string, projectId: string, path: string, text: string): Promise<void> {
   const r = await fetch(`${apiBase}/api/projects/${projectId}/file?path=${encodeURIComponent(path)}`, {
+    credentials: "include",
     method: "PUT",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ text }),

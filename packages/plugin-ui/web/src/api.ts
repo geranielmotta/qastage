@@ -30,7 +30,7 @@ export interface ScreenMap {
 const pluginApi = (apiBase: string, path: string) => pluginApiDe(apiBase, "ui-testing", path);
 
 export async function fetchSteps(apiBase: string): Promise<string[]> {
-  const r = await fetch(pluginApi(apiBase, "/steps"));
+  const r = await fetch(pluginApi(apiBase, "/steps"), { credentials: "include" });
   if (!r.ok) throw new Error("Falha ao ler o vocabulário de passos");
   return (await r.json()) as string[];
 }
@@ -41,6 +41,7 @@ export async function saveException(
   body: { maps: string; tela: string; rotulo: string; locator: Record<string, string> },
 ): Promise<void> {
   const r = await fetch(withProject(pluginApi(apiBase, "/exceptions"), project), {
+    credentials: "include",
     method: "PUT",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),

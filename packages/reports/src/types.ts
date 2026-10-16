@@ -10,6 +10,8 @@ export interface RunReport {
   id: string;
   plugin: string;
   project?: { id: string; name: string };
+  /** Quem pediu a execução (usuário do shell); ausente na CLI. */
+  requestedBy?: string;
   env: { name: string; baseUrl: string };
   status: RunStatus;
   startedAt: string;

@@ -76,3 +76,39 @@ a.card-proj:hover { border-color: var(--accent); }
 .grupo h2 { margin: 0 0 8px; font-size: 16px; }
 .grupo ul { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
 .grupo li { display: flex; flex-direction: column; }
+
+/* ── Sessão ──────────────────────────────────────────────────── */
+.entrar { min-height: 100vh; display: grid; place-items: center; padding: 16px; }
+.entrar-caixa { width: min(380px, 100%); background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 24px; display: flex; flex-direction: column; gap: 12px; }
+.entrar-caixa h1 { margin: 0; font-size: 24px; }
+.entrar-caixa label, .modal label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+.usuario { position: relative; margin-left: auto; }
+.topo .env + .usuario, .topo .trilha + .usuario { margin-left: 0; }
+.usuario-botao { border: 1px solid var(--line); }
+.papel { font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 99px; padding: 0 6px; margin-left: 4px; }
+.usuario-menu { position: absolute; right: 0; top: calc(100% + 6px); background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 6px; display: flex; flex-direction: column; min-width: 180px; z-index: 10; box-shadow: 0 6px 24px rgb(0 0 0 / .12); }
+.usuario-menu a, .usuario-menu button { text-align: left; border: 0; background: none; padding: 7px 10px; border-radius: 6px; color: var(--fg); text-decoration: none; font-size: 14px; }
+.usuario-menu a:hover, .usuario-menu button:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.modal-fundo { position: fixed; inset: 0; background: rgb(0 0 0 / .35); display: grid; place-items: center; z-index: 20; padding: 16px; }
+.modal { width: min(380px, 100%); background: var(--card); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
+.modal h2 { margin: 0; font-size: 18px; }
+.acoes { display: flex; justify-content: flex-end; gap: 8px; }
+.ok { color: var(--ok); }
+
+/* ── Administração ───────────────────────────────────────────── */
+.admin { max-width: 1200px; display: flex; flex-direction: column; gap: 14px; }
+.admin h1 { margin: 0; font-size: 24px; }
+.novo-usuario { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+.novo-usuario h2 { margin: 0; font-size: 16px; }
+.novo-usuario .primario { align-self: flex-start; }
+.projetos-novo { border: 1px solid var(--line); border-radius: 8px; display: flex; flex-wrap: wrap; gap: 6px 16px; }
+.projetos-novo legend { font-size: 13px; color: var(--muted); }
+label.check { display: flex; align-items: center; gap: 6px; font-size: 14px; }
+.aviso-senha { border: 1px solid var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--card)); border-radius: 8px; padding: 10px 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.aviso-senha code { font-size: 15px; font-weight: 700; user-select: all; }
+.tabela-admin { overflow-x: auto; background: var(--card); border: 1px solid var(--line); border-radius: 10px; }
+.tabela-admin table { border-collapse: collapse; width: 100%; font-size: 14px; }
+.tabela-admin th, .tabela-admin td { padding: 10px 12px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: middle; }
+.tabela-admin .col-proj { text-align: center; }
+.tabela-admin tr.inativo td { opacity: .55; }
+.acoes-linha { white-space: nowrap; display: flex; gap: 6px; }

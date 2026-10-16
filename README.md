@@ -23,7 +23,8 @@ pnpm --filter @qastage/plugin-load dev
 # com o pnpm no PATH, `pnpm dev` sobe runner, shell e painéis de uma vez (turbo)
 ```
 
-Abra http://localhost:5173, entre num projeto e siga os testes. Pela CLI:
+Abra http://localhost:5173. No primeiro acesso o shell pede para criar o **administrador**; ele cadastra os
+QAs e libera os projetos de cada um (ver "Usuários e permissões"). Pela CLI:
 
 ```bash
 pnpm run runner -- projects                                                     # lista os projetos
@@ -140,6 +141,31 @@ Cada módulo (exceto o core) é um plugin com as duas metades descritas acima.
 | data | Fixtures + geradores BR válidos; preenchimento automático por nome de campo + override. |
 | reports & artifacts | Prints de sucesso/falha, relatório navegável, armazenamento de artefatos. |
 | integrations | Jira (card na falha) e, no futuro, Slack e outros. |
+
+## Usuários e permissões
+
+Dois papéis. O **admin** vê todos os projetos, cria projetos e cadastra pessoas; o **QA** só vê os projetos
+que o admin atribuiu a ele — no dashboard e em toda a API.
+
+- **Primeiro acesso:** sem nenhum usuário, o shell oferece criar o administrador (ou, na máquina do runner:
+  `pnpm run runner -- usuarios admin <email> <nome>`).
+- **Administração** (menu do usuário → Administração): criar pessoa (gera **senha temporária**, mostrada uma
+  vez), trocar papel, marcar os projetos de cada QA, redefinir senha, desativar.
+- Cada um troca a própria senha no menu do usuário. Desativar, mudar o papel ou redefinir a senha encerra as
+  sessões abertas daquela pessoa.
+
+Como é protegido:
+
+- A regra vale **no runner**, não só na tela: projetos, `.feature`, execuções, histórico, relatórios e prints
+  de projeto não atribuído respondem 403.
+- Senhas com **scrypt** + sal em `qastage-data/usuarios.json` (fora do git); a API nunca devolve o hash.
+- Sessão em cookie **HttpOnly** (12 h), CORS restrito às origens do shell (`QASTAGE_ALLOWED_ORIGINS`) e
+  escrita só com JSON (formulário de outro site não consegue disparar ações).
+- 5 senhas erradas seguidas bloqueiam aquele login por 1 minuto; a mensagem de erro não revela se o e-mail existe.
+- Sempre resta ao menos um administrador ativo.
+- O relatório registra **quem executou**.
+- A **CLI** é ferramenta do operador da máquina do runner e não passa por login (quem tem acesso ao disco já tem os arquivos).
+  Comandos: `usuarios listar | admin <email> <nome> | senha <email>`.
 
 ## Configuração do projeto (`qastage.config.json`)
 

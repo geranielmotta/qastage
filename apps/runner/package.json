@@ -6,7 +6,8 @@
     "build": "tsc --noEmit",
     "start": "tsx src/cli.ts",
     "dev": "tsx watch src/server.ts",
-    "serve": "tsx src/server.ts"
+    "serve": "tsx src/server.ts",
+    "test": "tsx --test src/auth/*.test.ts"
   },
   "dependencies": {
     "@qastage/core-contract": "workspace:*",

@@ -11,7 +11,7 @@ export default function Panel({ apiBase, project }: PanelProps) {
   const [filtro, setFiltro] = useState<"todas" | "falhas">("todas");
 
   const carregar = useCallback(() => {
-    fetch(`${apiBase}/api/plugins/reports/runs${project ? `?project=${encodeURIComponent(project.id)}` : ""}`)
+    fetch(`${apiBase}/api/plugins/reports/runs${project ? `?project=${encodeURIComponent(project.id)}` : ""}`, { credentials: "include" })
       .then((r) => r.json() as Promise<RunSummary[]>)
       .then(setRuns)
       .catch(() => setErro("Não consegui ler o histórico no runner."));
